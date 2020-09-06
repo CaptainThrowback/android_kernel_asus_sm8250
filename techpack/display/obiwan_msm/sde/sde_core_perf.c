@@ -1008,6 +1008,9 @@ static ssize_t _sde_core_perf_threshold_high_read(struct file *file,
 	return len;
 }
 
+// ASUS BSP DisplayPort +++
+extern bool asus_display_in_normal_off(void);
+
 static ssize_t _sde_core_perf_mode_write(struct file *file,
 		    const char __user *user_buf, size_t count, loff_t *ppos)
 {
@@ -1016,6 +1019,13 @@ static ssize_t _sde_core_perf_mode_write(struct file *file,
 	u32 perf_mode = 0;
 	char buf[10];
 	int ret = 0;
+
+	// ASUS BSP DisplayPort +++
+	if (asus_display_in_normal_off()) {
+		pr_err("[Display] performance mode return.\n");
+		return -EFAULT;
+	}
+	// ASUS BSP DisplayPort ---
 
 	if (!perf)
 		return -ENODEV;

@@ -15,6 +15,7 @@ obj-y        += firmware.o
 obj-y        += hardware.o
 obj-y        += input_device.o
 obj-y        += i2c_bus.o
+obj-y        += i2c_wake_bus.o
 obj-y        += irq.o
 obj-y        += main.o
 obj-y        += memory.o

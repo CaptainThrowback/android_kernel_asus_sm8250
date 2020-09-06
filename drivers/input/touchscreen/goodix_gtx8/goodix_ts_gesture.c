@@ -373,6 +373,13 @@ static ssize_t gsx_swipeup_enable_store(struct goodix_ext_module *module,
 
 	return count;
 }
+
+static ssize_t gsx_fod_XY_data_show(struct goodix_ext_module *module,
+		char *buf)
+{
+	ts_info("Gesture KEY_F X/Y data: %d,%d",data_x,data_y);
+	return scnprintf(buf, PAGE_SIZE, "%d,%d\n", data_x, data_y);
+}
 // ASUS_BSP --- Touch
 
 const struct goodix_ext_attribute gesture_attrs[] = {
@@ -391,7 +398,8 @@ const struct goodix_ext_attribute gesture_attrs[] = {
 	__EXTMOD_ATTR(swipeup, 0666, gsx_swipeup_enable_show,
 		gsx_swipeup_enable_store),
 	__EXTMOD_ATTR(fp_wakeup, 0666, gsx_fp_wakeup_enable_show,
-		gsx_fp_wakeup_enable_store)
+		gsx_fp_wakeup_enable_store),
+	__EXTMOD_ATTR(XY, 0444, gsx_fod_XY_data_show, NULL)
 // ASUS_BSP --- Touch
 };
 
@@ -749,6 +757,7 @@ static int report_gesture_key(struct input_dev *dev, char keycode)
 		if(keycode == 'F') {
 			input_switch_key(dev, KEY_F);
 			ts_info("KEY_F");
+#if 0
 			input_report_key(dev, BTN_TOUCH, 1);
 			input_mt_slot(dev, 0);
 			input_mt_report_slot_state(dev, MT_TOOL_FINGER, true);
@@ -758,9 +767,10 @@ static int report_gesture_key(struct input_dev *dev, char keycode)
 			input_report_abs(dev, ABS_MT_PRESSURE,data_w);
 			input_sync(dev);
 			ts_info("Gesture KEY_F -- X/Y/W data: %d,%d,%d",data_x,data_y,data_w);
+#endif
 			asus_display_report_fod_touched();
 			enable_aod_processing(true);
-
+#if 0
 			input_mt_slot(dev, 0);
 			input_mt_report_slot_state(dev, MT_TOOL_FINGER, false);
 			input_report_abs(dev, ABS_MT_TOUCH_MAJOR, 0);
@@ -768,6 +778,7 @@ static int report_gesture_key(struct input_dev *dev, char keycode)
 			input_report_key(dev, BTN_TOUCH, 0);
 			input_sync(dev);
 			ts_info("Gesture KEY_F --- release X/Y/W data: %d,%d,%d",data_x,data_y,data_w);
+#endif
 			return 3;
 		}
 		if(keycode == 'U') {

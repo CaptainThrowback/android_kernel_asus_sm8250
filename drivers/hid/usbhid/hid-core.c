@@ -287,7 +287,7 @@ static void hid_irq_in(struct urb *urb)
 		usbhid_mark_busy(usbhid);
 		if (!test_bit(HID_RESUME_RUNNING, &usbhid->iofl)) {
 			// Skip ENE HID keyboard if block_hid_input set true
-			if ( block_hid_input && (hid->vendor == 0x0CF2) && (hid->product == 0x7750) ) {
+			if ( block_hid_input && (hid->vendor == 0x0CF2) && (hid->product == 0x7750) && (data[3] != 0x00)) {
 				printk("[EC_HID] Disable 0x%x:0x%x HID keyboard!!! 0x%x\n", hid->vendor, hid->product, block_hid_input);
 			}else {
 				if ( (hid->vendor == 0x0CF2) && (hid->product == 0x7750) ){

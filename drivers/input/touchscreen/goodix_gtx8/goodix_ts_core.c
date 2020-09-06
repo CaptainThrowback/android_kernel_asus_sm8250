@@ -51,6 +51,7 @@ static void goodix_resume_work(struct work_struct *work);
 void ATR_touch_new(struct device *dev, int id,int action, int x, int y, int random);
 int goodix_change_config(struct goodix_ts_core *core_data, const char *fw_name);
 void charge_mode_enable(struct goodix_ts_core *core_data, bool en);
+int read_chip_cmd(struct goodix_ts_core *core_data, u16 cmd_addr, int buf_len, u8 *buffer);
 
 #define GoodixDefaultSampleRate 240
 #define GLOVE                  "driver/glove"
@@ -88,6 +89,8 @@ struct goodix_module goodix_modules;
 extern char asus_var_panel_stage[3];
 extern bool asus_var_regulator_always_on;
 extern u8 TouchArea;
+extern int data_x;
+extern int data_y;
 
 extern bool asus_display_in_normal_off(void);
 extern void enable_aod_processing(bool en);
@@ -1642,23 +1645,12 @@ static ssize_t chip_debug_show(struct device *dev,
 				     struct device_attribute *attr, char *buf)
 {
 	struct goodix_ts_core *core_data = dev_get_drvdata(dev);
-	struct goodix_ts_device *ts_dev = core_data->ts_dev;
-	u16 cmd_addr = GOODIX_ADDR_GOODIX_DEBUG_CMD;
-	u32 buf_len = 12;
-	u8 buffer[12]={0x0};
-	int ret = 0, i = 0, offset = 0;
+	u8 buffer[BUF_LEN_4154]={0x0};
+	int i = 0, offset = 0;
 
-	mutex_lock(&goodix_modules.mutex);
-	ret = ts_dev->hw_ops->read(ts_dev, cmd_addr, buffer, buf_len);
-	if (ret) {
-		ts_info("failed read addr(%x) data %*ph\n", cmd_addr,
-			buf_len, buffer);
-	}
-	mutex_unlock(&goodix_modules.mutex);
-	ts_info("%s read addr (%x) with data %*ph\n",
-		"success", cmd_addr, buf_len, buffer);
-	
-	for (i = 0; i < buf_len; i++) {
+	read_chip_cmd(core_data, GOODIX_ADDR_GOODIX_DEBUG_CMD, BUF_LEN_4154, buffer);
+
+	for (i = 0; i < BUF_LEN_4154; i++) {
 		offset += snprintf(&buf[offset], PAGE_SIZE - offset,
 						"%02X,", buffer[i]);
 	}
@@ -2125,6 +2117,24 @@ void setting_touch_print_count(int count)
 }
 EXPORT_SYMBOL(setting_touch_print_count);
 
+int read_chip_cmd(struct goodix_ts_core *core_data, u16 cmd_addr, int buf_len, u8 *buffer) {
+	struct goodix_ts_device *ts_dev = core_data->ts_dev;
+
+	int ret = 0;
+
+	mutex_lock(&goodix_modules.mutex);
+	ret = ts_dev->hw_ops->read(ts_dev, cmd_addr, buffer, buf_len);
+	if (ret) {
+		ts_info("failed read addr(%x) data %*ph\n", cmd_addr,
+			buf_len, buffer);
+	}
+	mutex_unlock(&goodix_modules.mutex);
+	ts_info("%s read addr (%x) with data %*ph\n",
+		"success", cmd_addr, buf_len, buffer);
+
+	return 0;
+}
+
 static void goodix_resume_work(struct work_struct *work)
 {
 	static bool wait_dclick_enable = true;
@@ -2447,6 +2457,7 @@ static void goodix_ts_report_finger(struct input_dev *dev,
 	struct goodix_ts_core *core_data = input_get_drvdata(dev);
 	static int touch_count = 0;
 	static bool first_data = true;
+	u8 buffer[BUF_LEN_4154]={0x0};
 // ASUS_BSP --- Touch
 
 	// gesture mode lost key_U +++
@@ -2551,9 +2562,11 @@ static void goodix_ts_report_finger(struct input_dev *dev,
 			if ((touch_count == 1) && (first_data == true)) {
 				first_data = false;
 				ts_info("[%3d][%2d]%4d|%4d|%3d|", touch_count, i, touch_data->coords[i].x, touch_data->coords[i].y, touch_data->coords[i].w);
+				read_chip_cmd(core_data, GOODIX_ADDR_GOODIX_DEBUG_CMD, BUF_LEN_4154, buffer);
 			}
 			if (touch_count >= print_touch_count_max) {
 				ts_info("[%3d][%2d]%4d|%4d|%3d|", touch_count, i, touch_data->coords[i].x, touch_data->coords[i].y, touch_data->coords[i].w);
+				read_chip_cmd(core_data, GOODIX_ADDR_GOODIX_DEBUG_CMD, BUF_LEN_4154, buffer);
 				touch_count = 0;
 			}
 // ASUS_BSP --- Touch
@@ -2573,6 +2586,9 @@ static void goodix_ts_report_finger(struct input_dev *dev,
 							key_o_sync = false;
 							ts_info("release KEY_O");
 						}
+						data_x = touch_data->coords[i].x;
+						data_y = touch_data->coords[i].y;
+						ts_info("KEY_F X = %d, Y = %d", data_x, data_y);
 						input_switch_key(dev, KEY_F);
 						asus_display_report_fod_touched();
 						ts_info("KEY_F");
@@ -2586,8 +2602,7 @@ static void goodix_ts_report_finger(struct input_dev *dev,
 						ts_info("FPArea %d < %d", TouchArea, FPArea);
 					}
 				}
-				
-				if(!((key_o_sync == true) && (key_i == i))){
+				if(!(((key_o_sync == true) || (aod_press == true)) && (key_i == i))){
 					input_mt_slot(dev, i);
 					input_mt_report_slot_state(dev, MT_TOOL_FINGER, true);
 					input_report_abs(dev, ABS_MT_POSITION_X,
@@ -2611,6 +2626,9 @@ static void goodix_ts_report_finger(struct input_dev *dev,
 							key_o_sync = false;
 							ts_info("release KEY_O");
 						}
+						data_x = touch_data->coords[i].x;
+						data_y = touch_data->coords[i].y;
+						ts_info("KEY_F X = %d, Y = %d", data_x, data_y);
 						input_switch_key(dev, KEY_F);
 						asus_display_report_fod_touched();
 						ts_info("KEY_F");
@@ -2625,7 +2643,7 @@ static void goodix_ts_report_finger(struct input_dev *dev,
 					}
 				}
 			}
-			if(!((key_o_sync == true) && (key_i == i))){
+			if(!(((key_o_sync == true) || (aod_press == true)) && (key_i == i))){
 				input_mt_slot(dev, i);
 				input_mt_report_slot_state(dev, MT_TOOL_FINGER, true);
 				input_report_abs(dev, ABS_MT_POSITION_X,

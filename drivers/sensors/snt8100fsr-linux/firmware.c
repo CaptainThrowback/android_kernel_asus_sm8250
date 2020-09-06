@@ -79,7 +79,7 @@ extern enum DEVICE_HWID g_ASUS_hwID;
 /*==========================================================================*/
 /* PROTOTYPES                                                               */
 /*==========================================================================*/
-static void upload_wq_func(struct work_struct *work);
+void upload_wq_func(struct work_struct *work);
 static void upload_firmware_internal(struct upload_work *w);
 static irqreturn_t irq_handler_top(int irq, void *dev);
 
@@ -238,7 +238,7 @@ int upload_firmware(struct snt8100fsr *snt8100fsr, char *filename) {
 	//PRINT_INFO("ap_lock has initialed");
 	//MUTEX_LOCK(&snt8100fsr_g->ap_lock);
 
-	INIT_DELAYED_WORK(&own_work, upload_wq_func);
+	//INIT_DELAYED_WORK(&own_work, upload_wq_func);
 	
 	/* ASUS BSP Clay: protec status change */
 	MUTEX_LOCK(&snt8100fsr_g->ap_lock);
@@ -279,8 +279,7 @@ int upload_firmware(struct snt8100fsr *snt8100fsr, char *filename) {
     set_bcr_irpt_dur(0x3f); //one equals 0.0128, so the duratin is 0x3f * 0.0128 = 63*0.0128 = 0.8064 us
 #endif
 
-    workqueue_queue_work(&own_work, 0);
-    PRINT_INFO("END");
+    //workqueue_queue_work(&own_work, 0);
     return 0;
 }
 
@@ -306,7 +305,7 @@ int irq_handler_fwd( void) {
     }
     return 0;
 }
-static void upload_wq_func(struct work_struct *work_orig) {
+void upload_wq_func(struct work_struct *work_orig) {
     //upload_firmware_internal((struct upload_work *)work);
     upload_firmware_internal(work);
     PRINT_DEBUG("SNT upload_wq_func done");

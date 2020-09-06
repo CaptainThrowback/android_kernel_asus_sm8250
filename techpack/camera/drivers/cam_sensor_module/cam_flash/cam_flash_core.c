@@ -506,6 +506,8 @@ static int cam_flash_ops(struct cam_flash_ctrl *flash_ctrl,
 			flash_ctrl->switch_trigger,
 			(enum led_brightness)LED_SWITCH_ON);
 
+	asus_flash_state = 1; //ASUS_BSP +++ Shianliang add low battery checking
+
 	return 0;
 }
 
@@ -516,11 +518,16 @@ int cam_flash_off(struct cam_flash_ctrl *flash_ctrl)
 		return -EINVAL;
 	}
 
+	CAM_DBG(CAM_FLASH, "LED_Flash flash_off"); //ASUS_BSP +++ Shianliang add low battery checking
+
 	if (flash_ctrl->switch_trigger)
 		cam_res_mgr_led_trigger_event(flash_ctrl->switch_trigger,
 			(enum led_brightness)LED_SWITCH_OFF);
 
 	flash_ctrl->flash_state = CAM_FLASH_STATE_START;
+
+	asus_flash_state = 0; //ASUS_BSP +++ Shianliang add low battery checking
+
 	return 0;
 }
 
@@ -1067,13 +1074,7 @@ int cam_flash_pmic_apply_setting(struct cam_flash_ctrl *fctrl,
 			goto apply_setting_err;
 		}
 	}
-//ASUS_BSP +++ Shianliang add low battery checking
-	if ((flash_data->opcode == CAMERA_SENSOR_FLASH_OP_FIREHIGH) ||
-	(flash_data->opcode == CAMERA_SENSOR_FLASH_OP_FIRELOW))
-		asus_flash_state = 1;
-	else if(flash_data->opcode == CAMERA_SENSOR_FLASH_OP_OFF)
-		asus_flash_state = 0;
-//ASUS_BSP --- Shianliang add low battery checking
+
 nrt_del_req:
 	cam_flash_pmic_delete_req(fctrl, req_id);
 apply_setting_err:
@@ -1951,6 +1952,8 @@ int cam_flash_release_dev(struct cam_flash_ctrl *fctrl)
 		fctrl->bridge_intf.session_hdl = -1;
 		fctrl->last_flush_req = 0;
 	}
+
+	asus_flash_state = 0; //ASUS_BSP +++ Shianliang add low battery checking
 
 	return rc;
 }

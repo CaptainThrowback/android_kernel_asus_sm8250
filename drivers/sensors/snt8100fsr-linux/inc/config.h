@@ -70,8 +70,8 @@
 #endif
 
 #ifdef USE_I2C_BUS
-#define SENTONS_DRIVER_NAME "snt8100fsr-i2c"
-#define SENTONS_DRIVER_WAKE_DEVICE_NAME "snt8100fsr-i2c-wake"
+#define SENTONS_DRIVER_NAME "snt8155fsr-i2c"
+#define SENTONS_DRIVER_WAKE_DEVICE_NAME "snt8155-wake-i2c"
 #define UPLOAD_FIRMWARE
 // comment out to remove feature.
 #ifndef FACTORY_FLAG

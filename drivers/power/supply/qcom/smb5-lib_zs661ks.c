@@ -5222,8 +5222,8 @@ int smblib_set_prop_pd_voltage_max(struct smb_charger *chg,
 		val->intval, chg->voltage_min_uv);
 
 	max_uv = max(val->intval, chg->voltage_min_uv);
-	if (chg->voltage_max_uv == max_uv)
-		return 0;
+//	if (chg->voltage_max_uv == max_uv)
+//		return 0;
 
 	rc = smblib_set_usb_pd_fsw(chg, max_uv);
 	if (rc < 0) {
@@ -6697,7 +6697,7 @@ void asus_slow_insertion_work(struct work_struct *work)
 }*/
 //[---]WA for BTM_500mA issue
 
-#define RT_RESET_PATH	"/sys/devices/platform/soc/c84000.i2c/i2c-7/7-004e/tcpc/type_c_port0/pd_test"
+#define RT_RESET_PATH	"/sys/devices/platform/soc/884000.i2c/i2c-6/6-004e/tcpc/type_c_port0/pd_test"
 void asus_call_rt_reset_work(struct work_struct *work)
 {
 	struct file *fp = NULL;
@@ -8607,7 +8607,7 @@ void smblib_usb_plugin_hard_reset_locked(struct smb_charger *chg)
 	if (!gpio_get_value(global_gpio->POGO_OVP_ACOK) && rt_ufp != 0) {
 		CHG_DBG_E("Set dual_port_once_flag = 1\n");
 		dual_port_once_flag = 1;
-	} else if (gpio_get_value(global_gpio->POGO_OVP_ACOK) && gpio_get_value(global_gpio->BTM_OVP_ACOK)) {
+	} else if (gpio_get_value(global_gpio->POGO_OVP_ACOK) && gpio_get_value(global_gpio->BTM_OVP_ACOK) && rt_ufp == 0) {
 		dual_port_once_flag = 0;
 		CHG_DBG_E("Set dual_port_once_flag = 0\n");
 	}
@@ -8866,7 +8866,7 @@ void smblib_usb_plugin_locked(struct smb_charger *chg)
 	if (!gpio_get_value(global_gpio->POGO_OVP_ACOK) && rt_ufp != 0) {
 		CHG_DBG_E("Set dual_port_once_flag = 1\n");
 		dual_port_once_flag = 1;
-	} else if (gpio_get_value(global_gpio->POGO_OVP_ACOK) && gpio_get_value(global_gpio->BTM_OVP_ACOK)) {
+	} else if (gpio_get_value(global_gpio->POGO_OVP_ACOK) && gpio_get_value(global_gpio->BTM_OVP_ACOK) && rt_ufp == 0) {
 		dual_port_once_flag = 0;
 		CHG_DBG_E("Set dual_port_once_flag = 0\n");
 	}

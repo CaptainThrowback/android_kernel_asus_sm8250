@@ -154,7 +154,7 @@ void set_1V2_2V8_pin_func(struct work_struct *work_orig) {
 	
 	PRINT_INFO("1v2 pull up");
 	snt_set_pinctrl(snt8100fsr_g->dev, GRIP_1V2_ON);
-	msleep(100);
+	msleep(5);
 	
 	PRINT_INFO("2v8 pull up");
 	snt8100fsr_g->mgrip_asus_func->grip_regulator_init();	
@@ -162,7 +162,31 @@ void set_1V2_2V8_pin_func(struct work_struct *work_orig) {
 	
 	PRINT_INFO("rst pull up");
 	snt_set_pinctrl(snt8100fsr_g->dev, GRIP_RST_ON);
-	msleep(100);
+	msleep(5);
+	
+	read_register(snt8100fsr_g, REGISTER_CHIP_ID_LSB, &reg_chidlsb);
+	PRINT_INFO("REGISTER_CHIP_ID_LSB = 0x%x", reg_chidlsb);
+	read_register(snt8100fsr_g, REGISTER_CHIP_ID_MSB, &reg_chidmsb);
+	PRINT_INFO("REGISTER_CHIP_ID_MSB = 0x%x", reg_chidmsb);
+	
+	//MUTEX_LOCK(&snt8100fsr_g->ap_lock);
+    return;
+}
+
+void set_1V2_2V8_pin_no_func(void) {
+   	uint16_t reg_chidlsb, reg_chidmsb;
+	
+	PRINT_INFO("1v2 pull up");
+	snt_set_pinctrl(snt8100fsr_g->dev, GRIP_1V2_ON);
+	msleep(5);
+	
+	PRINT_INFO("2v8 pull up");
+	snt8100fsr_g->mgrip_asus_func->grip_regulator_init();	
+	snt8100fsr_g->mgrip_asus_func->grip_regulator_enable();	
+	
+	PRINT_INFO("rst pull up");
+	snt_set_pinctrl(snt8100fsr_g->dev, GRIP_RST_ON);
+	msleep(5);
 	
 	read_register(snt8100fsr_g, REGISTER_CHIP_ID_LSB, &reg_chidlsb);
 	PRINT_INFO("REGISTER_CHIP_ID_LSB = 0x%x", reg_chidlsb);
@@ -175,7 +199,7 @@ void set_1V2_2V8_pin_func(struct work_struct *work_orig) {
 
 void asus_init_probe(void){
 	int ret;
-	struct delayed_work en_pwr_wk;
+	//struct delayed_work en_pwr_wk;
 	struct Grip_DPC_status *Grip_DPC_status_t;
 	struct grip_status *grip_state_t;
 
@@ -214,9 +238,10 @@ void asus_init_probe(void){
     //if (of_property_read_bool(np, "grip_gpio12")){
 
 	
-	INIT_DELAYED_WORK(&en_pwr_wk, set_1V2_2V8_pin_func);
+	//INIT_DELAYED_WORK(&en_pwr_wk, set_1V2_2V8_pin_func);
 	PRINT_INFO("WQ: call set_rst_pin_func");
-	workqueue_queue_work(&en_pwr_wk, 0);
+	//workqueue_queue_work(&en_pwr_wk, 0);
+	set_1V2_2V8_pin_no_func();
 
     /* Clay ioctl +++*/
     ret = sntSensor_miscRegister();
