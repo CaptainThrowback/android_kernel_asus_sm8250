@@ -243,7 +243,8 @@ int snt_i2c_device_init(struct i2c_client *i2c,
 	snt8100fsr->snt_trig1_num = of_get_named_gpio(i2c->dev.of_node, SNT_TRIG1_NAME, 0);
 	snt8100fsr->snt_trig2_num = of_get_named_gpio(i2c->dev.of_node, SNT_TRIG2_NAME, 0);
 	snt8100fsr->snt_trig3_num = of_get_named_gpio(i2c->dev.of_node, SNT_TRIG3_NAME, 0);
-	
+
+	/*
 	PRINT_INFO("Get gpio: rst[%d]=%d, host1[%d]=%d, trig0[%d]=%d",
 			RST_GPIO, snt8100fsr->rst_gpio, 
 			IRQ_GPIO, snt8100fsr->hostirq_gpio, 
@@ -253,6 +254,7 @@ int snt_i2c_device_init(struct i2c_client *i2c,
 			TRIG1_GPIO, snt8100fsr->snt_trig1_num, 
 			TRIG2_GPIO, snt8100fsr->snt_trig2_num,
 			TRIG3_GPIO, snt8100fsr->snt_trig3_num);
+	*/
 	
 	snt8100fsr->frame_rate = DEFAULT_FRAME_RATE;
     snt8100fsr->suspended_frame_rate = DEFAULT_SUSPENDED_FRAME_RATE;

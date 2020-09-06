@@ -22,8 +22,6 @@
 #include <linux/freezer.h>
 #include <linux/seq_file.h>
 #include <linux/mutex.h>
-//#include <sys/time.h>
-#include <linux/delay.h>
 
 /*
  * A cgroup is freezing if any FREEZING flags are set.  FREEZING_SELF is
@@ -85,151 +83,37 @@ static const char *freezer_state_strs(unsigned int state)
 		return "FREEZING";
 	return "THAWED";
 };
-//#define CONFIG_CGF_NOTIFY_EVENT
+
 #ifdef CONFIG_CGF_NOTIFY_EVENT
-#define UNFREEZE_MAX_RETRY_COUNT 20
-#define UNFREEZE_RETRY_DELAY_MS 10
-#define UNFREEZE_MAX_TASK_RETRY_COUNT 0
-#define UNFREEZE_MAX_RETRY_TIMEOUT_US 2000000
-static void *s_unqueue_tasks[MAX_UNQUEUE_TASK_SIZE];
-static int s_utsk_index = 0;
 static struct workqueue_struct *cgf_notify_wq = NULL;
-static int s_not_queued_count = 0;
-static int s_seq_id = 0;
-int unfreeze_task(struct freezer *freezer ,struct task_struct *t,int is_retry,int is_unqueue,int seq_id) {
-	int ret = 0;
-	int skip_not_freeze = 0;
-	int is_frozen = 0;
-	int is_freezing = 0;
-	int is_frozen_done = 0;
-	int is_freezing_done = 0;
-	int do_again_count= 0;
-	int is_frozen_count = 0;
-	int is_freezing_count = 0;
-	int retry_err_count =0;
-
-	if (!t || t==NULL) {
-		printk(KERN_ERR"[CGF]seq_id=%d, %s, task null\n",seq_id, __func__);
-		goto out_task_null;
-	}
-	//	printk(KERN_ERR"[CGF] %s, start: pid: %d,  frozen %d, freezing %d\n", __func__, t->pid, frozen(t), freezing(t));
-		is_frozen = frozen(t) ;
-		is_freezing = freezing(t);
-		if (is_frozen || is_freezing){
-		    ret = cgf_attach_task_group(freezer->css.cgroup, t->pid);
-		    is_frozen_done = frozen(t) ;
-		    is_freezing_done = freezing(t);
-		    for (do_again_count=0;do_again_count<UNFREEZE_MAX_TASK_RETRY_COUNT;do_again_count++) {
-		    	if (is_frozen_done || is_freezing_done) {
-		    		// do again
-		    		ret = cgf_attach_task_group(freezer->css.cgroup, t->pid);
-		    		is_frozen_done = frozen(t) ;
-		    		is_freezing_done = freezing(t);
-		    		is_frozen_count+=is_frozen_done;
-		    		is_freezing_count+=is_freezing_done;
-		    		if (ret!=0) {
-		    			retry_err_count++;
-		    		}
-		    	} else {
-		    		break;
-		    	}
-		    }
-		} else {
-			ret = 1;
-			skip_not_freeze = 1;
-		}
-		if (is_frozen_done || is_freezing_done) {
-			ret = 0;
-		} else {
-			ret =1;
-		}
-		if (skip_not_freeze == 0) {
-			printk(KERN_ERR"[CGF]seq_id=%d, %s,  return: %d, pid: %d skip:%d is_frozen:%d->%d(%d) , is_freezing:%d->%d(%d) , do_again_count:%d,err_count:%d,is_retry:%d,is_unqueue:%d\n",
-					seq_id,__func__, ret, t->pid,skip_not_freeze,
-					is_frozen,is_frozen_done,is_frozen_count,
-					is_freezing,is_freezing_done,is_freezing_count,
-					do_again_count,retry_err_count,
-					is_retry,is_unqueue);
-		}
-		return ret;
-
-out_task_null:
-		return 1;
-}
-
 static void cgf_event_work(struct work_struct *work)
 {
 	struct freezer *freezer = container_of(work, struct freezer, cgf_notify_work);
 	struct task_struct *t;
-	struct task_struct *unqueue_t;
-	int main_task_pass = 0;
-	int i=0;
-	int unqueue_task_pass = 0;
-	int main_task_fail_count = 1;// 1 for first run
-	int unqueue_task_fail_count = 1;// 1 for first run
-	int retry_count = 0;
-//	int max_retry_count = 200;
-//	struct timeval t0, t1;
-   unsigned long delta_usec = 0;
-//	gettimeofday(&t0, NULL);
-   int seq_id = 99999;
-	for (retry_count=0;retry_count<UNFREEZE_MAX_RETRY_COUNT;retry_count++) {
-		if (main_task_fail_count) {
-			main_task_fail_count = 0;
-			// main task_struct
-			if(freezer->event.data && freezer->event.data != NULL) {
-				t = freezer->event.data;
-				seq_id = freezer->event.seq_id;
-				main_task_pass = unfreeze_task(freezer,t,0,0,seq_id);
-				if (main_task_pass) {
-					 freezer->event.data = NULL;
-				} else {
-					main_task_fail_count++;
-				}
-			}
-		}
-		if (unqueue_task_fail_count) {
-			unqueue_task_fail_count = 0;
-			//printk(KERN_ERR"[CGF]seq_id=%d, %s, v2 unqueue_tasks_size:%d\n", seq_id,__func__, freezer->event.unqueue_tasks_size);
-			// unqueue task struct
-			for (i=0;i<freezer->event.unqueue_tasks_size;i++) {
-				unqueue_t = freezer->event.unqueue_tasks[i];
-				if (unqueue_t && unqueue_t != NULL) {
-					unqueue_task_pass = unfreeze_task(freezer,unqueue_t,0,1,seq_id);
-					if (unqueue_task_pass) {
-						freezer->event.unqueue_tasks[i] = NULL;
-					} else {
-						unqueue_task_fail_count++;
-					}
-				}
-			}
-		}
-		if (unqueue_task_fail_count==0 && main_task_fail_count==0) {
-			break;
-		} else{
-//			gettimeofday(&t1, NULL);
-//			delta_usec = (t1.tv_sec - t0.tv_sec) * 1000000 + t1.tv_usec - t0.tv_usec;
-			//printk(KERN_ERR"[CGF]seq_id=%d,  %s, delay retry_count:%d unqueue_task_fail_count:%d, main_task_fail_count:%d,delta_usec:%lu\n",seq_id, __func__,retry_count,unqueue_task_fail_count,main_task_fail_count,delta_usec);
-			if (delta_usec > UNFREEZE_MAX_RETRY_TIMEOUT_US) {
-				break;
-			}
-			mdelay(UNFREEZE_RETRY_DELAY_MS);
-			// TODO try msleep
-		}
+	int ret = 0;
 
-	}
-//	gettimeofday(&t1, NULL);
-//	delta_usec = (t1.tv_sec - t0.tv_sec) * 1000000 + t1.tv_usec - t0.tv_usec;
-	// TODO need remove this log
-	if (retry_count>0) {
-		printk(KERN_ERR"[CGF]seq_id=%d, %s, final retry_count:%d unqueue_task_fail_count:%d, main_task_fail_count:%d,delta_usec:%lu\n",seq_id, __func__,retry_count,unqueue_task_fail_count,main_task_fail_count,delta_usec);
+	if(!freezer->event.data) {
+		ret = -EINVAL;
+		goto out_failed;
 	}
 
-	// unqueued task struct
-//out_failed:
-//
-//	if(ret == -EINVAL)
-//	   printk(KERN_ERR"[CGF] %s, Attaching an invalid group code: %d\n", __func__, ret);
+//	t = freezer->event.data;
+/*	
+	if (!frozen(t->pid)){
+		ret = -EINVAL;
+		goto out_failed;
+	}
+*/
+	t = freezer->event.data;
+//	printk(KERN_ERR"[CGF] %s, start: pid: %d,  frozen %d, freezing %d\n", __func__, t->pid, frozen(t), freezing(t));
+	ret = cgf_attach_task_group(freezer->css.cgroup, t->pid);
+	
+out_failed:
+
+	printk(KERN_ERR"[CGF] %s, return: %d, pid: %d\n", __func__, ret, t->pid);
+	
+	if(ret == -EINVAL)
+	   printk(KERN_ERR"[CGF] %s, Attaching an invalid group code: %d\n", __func__, ret);
 	 
 }
 
@@ -239,10 +123,8 @@ static int cgf_event_notify(struct notifier_block *self,
     struct freezer *freezer = container_of(self, struct freezer, nf);
 	struct cgf_event *event;
 	struct task_struct *t=NULL;
-	struct task_struct *t_unqueue_task=NULL;
 	int ret = -EPERM;
-	int i;
-	int skip_duplicate_task = 0;
+
 	event = data;
 	if(event == NULL || event->data == NULL){
 		ret = -EINVAL;
@@ -256,61 +138,14 @@ static int cgf_event_notify(struct notifier_block *self,
 		goto out_invalid_data;
 	}
 
-    if(cgf_notify_wq) {
+	// update event
+	freezer->event.info = event->info;
+	freezer->event.data = event->data;
+
+    if(cgf_notify_wq)
         ret = queue_work(cgf_notify_wq, &freezer->cgf_notify_work);
-    	// update event
-        if (ret != 0) {
-        	freezer->event.info = event->info;
-        	freezer->event.data = event->data;
 
-        	// get array
-        	freezer->event.unqueue_tasks_size = s_utsk_index;
-        	for (i=0;i<MAX_UNQUEUE_TASK_SIZE;i++) {
-        		freezer->event.unqueue_tasks[i] = s_unqueue_tasks[i];
-        	}
-        	// set seq id
-        	freezer->event.seq_id = s_seq_id;
-        	s_seq_id++;
-        	if (s_seq_id > 10000) {
-        		s_seq_id = 0;
-        	}
-        	// reset unqueue task array
-        	if (s_not_queued_count > 0 ) {
-        		printk(KERN_ERR"[CGF]seq_id=%d , %s, s_not_queued_count:%d,s_utsk_index: %d\n",freezer->event.seq_id, __func__,s_not_queued_count,s_utsk_index);
-        		s_not_queued_count = 0;
-        	}
-        	printk(KERN_ERR"[CGF]seq_id=%d , %s, enqueue: %d, pid:%d, type:%d s_utsk_index:%d\n",freezer->event.seq_id, __func__, ret, t->pid, event->type,s_utsk_index);
-        	s_utsk_index = 0;
-        } else {
-        	// init array
-        	if (s_utsk_index ==0) {
-            	for (i=0;i<MAX_UNQUEUE_TASK_SIZE;i++) {
-            		s_unqueue_tasks[i] = NULL;
-            	}
-        	}
-        	// add data to array
-        	if (s_utsk_index < MAX_UNQUEUE_TASK_SIZE) {
-        		skip_duplicate_task = 0;
-        		for (i=0;i<s_utsk_index;i++) {
-        			t_unqueue_task = s_unqueue_tasks[i];
-        			if (t_unqueue_task && (t_unqueue_task->pid == t->pid) ){
-        				// skip duplicate task
-        				skip_duplicate_task = 1;
-        				break;
-        			}
-        		}
-        		if (skip_duplicate_task==0) {
-        			s_unqueue_tasks[s_utsk_index] = t;
-        			s_utsk_index ++;
-        		}
-        	} else {
-        		s_not_queued_count++;
-        	}
-        }
-    }
-
-    // TODO need remove this log
-	//printk(KERN_ERR"[CGF] %s, skip_duplicate_task:%d,invalid_data: %d, pid:%d, type:%d s_utsk_index:%d\n", __func__,skip_duplicate_task, ret, t->pid, event->type,s_utsk_index);
+	printk(KERN_ERR"[CGF] %s, invalid_data: %d, pid:%d, type:%d\n", __func__, ret, t->pid, event->type);
 	
 	if (ret)
 		return 0;

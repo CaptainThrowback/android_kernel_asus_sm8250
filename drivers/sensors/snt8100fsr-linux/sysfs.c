@@ -2109,6 +2109,7 @@ int snt_sysfs_init(struct snt8100fsr *snt8100fsr, bool enable) {
 
     PRINT_FUNC("0x%p, %s for \"%s\"", snt8100fsr, enable ? "true" : "false", SYSFS_NAME);
 
+	PRINT_INFO("START");
     if (!enable) {
         sysfs_remove_link(sysfs_kobj_g, SYSFS_NAME);
         sysfs_remove_group(sysfs_kobj_g, &attr_group_g);
@@ -2165,7 +2166,7 @@ int snt_sysfs_init(struct snt8100fsr *snt8100fsr, bool enable) {
         }
     }
 
-    PRINT_DEBUG("done");
+    PRINT_INFO("END");
     return 0;
 }
 

@@ -184,10 +184,12 @@ static void thermal_zone_trip_update(struct thermal_zone_device *tz, int trip)
 
 		instance->target = get_target_state(instance, trend, throttle);
 
-		if(old_target!=((int)instance->target))
-			dev_info(&instance->cdev->device, "zone%d, type=%s, owner=%s, old_target=%d, target=%d\n",
+		if(old_target!=((int)instance->target)){
+			if(strcmp(instance->cdev->np->name,"cpu7-notify")){
+				dev_info(&instance->cdev->device, "zone%d, type=%s, owner=%s, old_target=%d, target=%d\n",
 					instance->tz->id, instance->cdev->type,instance->cdev->np->name, old_target, (int)instance->target);
-
+			}
+		}
 		if (instance->initialized && old_target == instance->target)
 			continue;
 
@@ -196,8 +198,10 @@ static void thermal_zone_trip_update(struct thermal_zone_device *tz, int trip)
 				trace_thermal_zone_trip(tz, trip, trip_type,
 							true);
 				update_passive_instance(tz, trip_type, 1);
-				dev_info(&tz->device, "Trigger1 step_wise! type:%s owner=%s cur_temp:%d Trip%d[type=%d,temp=%d]:throttle=%d\n",
+				if(strcmp(instance->cdev->np->name,"cpu7-notify")){
+					dev_info(&tz->device, "Trigger1 step_wise! type:%s owner=%s cur_temp:%d Trip%d[type=%d,temp=%d]:throttle=%d\n",
 								tz->type, instance->cdev->np->name, tz->temperature, trip, trip_type, trip_temp, throttle);
+				}
 			}
 		} else {
 			/* Activate a passive thermal instance */
@@ -206,16 +210,20 @@ static void thermal_zone_trip_update(struct thermal_zone_device *tz, int trip)
 				trace_thermal_zone_trip(tz, trip, trip_type,
 							true);
 				update_passive_instance(tz, trip_type, 1);
-				dev_info(&tz->device, "Trigger2 step_wise! type:%s owner=%s cur_temp:%d Trip%d[type=%d,temp=%d]:throttle=%d\n",
+				if(strcmp(instance->cdev->np->name,"cpu7-notify")){
+					dev_info(&tz->device, "Trigger2 step_wise! type:%s owner=%s cur_temp:%d Trip%d[type=%d,temp=%d]:throttle=%d\n",
 								tz->type, instance->cdev->np->name, tz->temperature, trip, trip_type, trip_temp, throttle);
+				}
 			/* Deactivate a passive thermal instance */
 			} else if (old_target != THERMAL_NO_TARGET &&
 				instance->target == THERMAL_NO_TARGET) {
 				trace_thermal_zone_trip(tz, trip, trip_type,
 							false);
 				update_passive_instance(tz, trip_type, -1);
-				dev_info(&tz->device, "Recovery step_wise! type:%s owner=%s cur_temp:%d Trip%d[type=%d,temp=%d]:throttle=%d\n",
+				if(strcmp(instance->cdev->np->name,"cpu7-notify")){
+					dev_info(&tz->device, "Recovery step_wise! type:%s owner=%s cur_temp:%d Trip%d[type=%d,temp=%d]:throttle=%d\n",
 								tz->type, instance->cdev->np->name, tz->temperature, trip, trip_type, trip_temp, throttle);
+				}
 			}
 		}
 

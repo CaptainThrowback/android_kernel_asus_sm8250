@@ -174,6 +174,8 @@ struct snt8100fsr {
     int snt_trig2_num;
     int snt_trig3_num;
 
+    bool Recovery_Flag;          /* Recovery when grip is access by IMS before firmware loading done */
+
 	grip_asus_struct *mgrip_asus_func;
 	
 	/* 

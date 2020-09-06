@@ -212,11 +212,8 @@ void asus_init_probe(void){
 
     /* Feed 1v2 and 2v8 to the chip */
     //if (of_property_read_bool(np, "grip_gpio12")){
-	PRINT_INFO("Set lock to make sure firmware loading down");
-	if(&snt8100fsr_g->ap_lock!=NULL){
-		//PRINT_INFO("ap_lock has initialed");
-		MUTEX_LOCK(&snt8100fsr_g->ap_lock);
-	}
+
+	
 	INIT_DELAYED_WORK(&en_pwr_wk, set_1V2_2V8_pin_func);
 	PRINT_INFO("WQ: call set_rst_pin_func");
 	workqueue_queue_work(&en_pwr_wk, 0);

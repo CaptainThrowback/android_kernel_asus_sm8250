@@ -25,6 +25,7 @@
 #include <linux/completion.h>
 #include <linux/debugfs.h>
 #include <linux/of_irq.h>
+#include <linux/time.h>
 
 #include "goodix_ts_core.h"
 
@@ -58,7 +59,7 @@ static int print_touch_count_max;
 static u32 fod_press = 0x0000;
 static int ts_9886_fod_position[4] = {440, 640, 1960, 2140};
 //static int ts_9896_fod_position[4] = {410, 681, 1651, 1938};
-static int ts_9896_fod_position[4] = {450, 641, 1721, 1868};
+static int ts_9896_fod_position[4] = {435, 641, 1679, 1868}; //CFG(47)
 static int *fod_position = NULL;
 static int LastATR = 0;
 static int LastATL = 0;
@@ -68,6 +69,7 @@ static bool aod_press = false;
 static int key_i = -1;
 static bool key_o_sync = false;
 bool enable_touch_debug = false;
+bool enable_touch_time_debug = false;
 
 bool GoodixTSEnTimestamp = false;
 bool GoodixTSEnTimestampDebug = false;
@@ -91,6 +93,7 @@ extern bool asus_display_in_normal_off(void);
 extern void enable_aod_processing(bool en);
 extern bool get_aod_processing(void);
 extern int asus_display_global_hbm_mode(void);
+extern void asus_display_report_fod_touched(void);
 extern bool wait_dclick(void);
 // ASUS_BSP --- Touch
 
@@ -1558,9 +1561,9 @@ static ssize_t dongle_state_store(struct device *dev,
 	
 	if (sscanf(buf, "%d", &en) != 1)
 		return -EINVAL;
-	ts_info("phone insert to %d",en);
+	ts_info("phone insert to %d (2:station / 3:dock)",en);
 
-	if(en == 2)
+	if((en == 2) || (en == 3))
 		core_data->station_insert = true;
 	else
 		core_data->station_insert = false;
@@ -1686,6 +1689,29 @@ static ssize_t enable_touch_debug_show(struct device *dev,
 {
 	return scnprintf(buf, PAGE_SIZE, "%d\n", enable_touch_debug);
 }
+
+static ssize_t enable_touch_time_debug_store(struct device *dev,
+				      struct device_attribute *attr, const char *buf, size_t count)
+{
+	int en;
+	
+	if (sscanf(buf, "%d", &en) != 1)
+		return -EINVAL;
+	ts_info("touch time debug %d",en);
+
+	if(en == 1)
+		enable_touch_time_debug = true;
+	else
+		enable_touch_time_debug = false;
+
+	return count;
+}
+
+static ssize_t enable_touch_time_debug_show(struct device *dev,
+				     struct device_attribute *attr, char *buf)
+{
+	return scnprintf(buf, PAGE_SIZE, "%d\n", enable_touch_time_debug);
+}
 // ASUS_BSP --- Touch
 
 static DEVICE_ATTR(extmod_info, S_IRUGO, goodix_ts_extmod_show, NULL);
@@ -1726,6 +1752,7 @@ static DEVICE_ATTR(FP_area,S_IRUGO|S_IWUSR, FP_area_show, FP_area_store);
 static DEVICE_ATTR(phone_state_on,S_IRUGO|S_IWUSR, NULL, phone_state_store);
 static DEVICE_ATTR(chip_debug,S_IRUGO|S_IWUSR, chip_debug_show, NULL);
 static DEVICE_ATTR(enable_touch_debug,S_IRUGO|S_IWUSR, enable_touch_debug_show, enable_touch_debug_store);
+static DEVICE_ATTR(enable_touch_time_debug,S_IRUGO|S_IWUSR, enable_touch_time_debug_show, enable_touch_time_debug_store);
 // ASUS_BSP --- Touch
 
 static struct attribute *sysfs_attrs[] = {
@@ -1763,6 +1790,7 @@ static struct attribute *sysfs_attrs[] = {
 	&dev_attr_phone_state_on.attr,
 	&dev_attr_chip_debug.attr,
 	&dev_attr_enable_touch_debug.attr,
+	&dev_attr_enable_touch_time_debug.attr,
 // ASUS_BSP --- Touch
 	NULL,
 };
@@ -2463,7 +2491,7 @@ static void goodix_ts_report_finger(struct input_dev *dev,
 
 	pre_fin = touch_num;
 
-	for (i = 0; i < GOODIX_ASUS_MAX_TOUCH; i++) {
+	for (i = 0; i < GOODIX_MAX_TOUCH; i++) {
 		if (!touch_data->coords[i].status)
 			continue;
 		if (touch_data->coords[i].status == TS_RELEASE) {
@@ -2546,6 +2574,7 @@ static void goodix_ts_report_finger(struct input_dev *dev,
 							ts_info("release KEY_O");
 						}
 						input_switch_key(dev, KEY_F);
+						asus_display_report_fod_touched();
 						ts_info("KEY_F");
 						aod_press = true;
 					} else {
@@ -2583,6 +2612,7 @@ static void goodix_ts_report_finger(struct input_dev *dev,
 							ts_info("release KEY_O");
 						}
 						input_switch_key(dev, KEY_F);
+						asus_display_report_fod_touched();
 						ts_info("KEY_F");
 						aod_press = true;
 					} else {
@@ -2646,9 +2676,16 @@ static irqreturn_t goodix_ts_threadirq_func(int irq, void *data)
 	struct goodix_ts_device *ts_dev =  core_data->ts_dev;
 	struct goodix_ext_module *ext_module, *next;
 	struct goodix_ts_event *ts_event = &core_data->ts_event;
+	struct timeval time_in, time_out;
+	suseconds_t diff;
+	
 	u8 irq_flag = 0;
 	int r;
 
+	if (enable_touch_time_debug == true) {
+		do_gettimeofday(&time_in);
+		//ts_info("Touch +++ [%d %d]", time_in.tv_sec, time_in.tv_usec);
+	}
 	core_data->irq_trig_cnt++;
 	/* inform external module */
 	mutex_lock(&goodix_modules.mutex);
@@ -2682,6 +2719,17 @@ static irqreturn_t goodix_ts_threadirq_func(int irq, void *data)
 	/* clean irq flag */
 	irq_flag = 0;
 	ts_dev->hw_ops->write_trans(ts_dev, ts_dev->reg.coor, &irq_flag, 1);
+	
+	if (enable_touch_time_debug == true) {
+		do_gettimeofday(&time_out);
+		//ts_info("Touch --- [%d %d]", time_out.tv_sec, time_out.tv_usec);
+		if (time_out.tv_sec == time_in.tv_sec)
+			diff = time_out.tv_usec - time_in.tv_usec;
+		else {
+			diff = 1000000 + time_out.tv_usec - time_in.tv_usec;
+		}
+		ts_info("Delta %d", diff);
+	}
 
 	return IRQ_HANDLED;
 }

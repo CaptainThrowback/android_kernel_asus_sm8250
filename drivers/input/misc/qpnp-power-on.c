@@ -30,6 +30,10 @@
 extern char evtlog_pon_dump[100];
 #endif
 
+#ifdef FORCE_RAMDUMP_FEATURE
+extern int g_force_ramdump;
+#endif
+
 static int power_key_6s_running = 0;
 static int voldown_key_6s_running = 0;
 static int power_key_3s_running = 0;
@@ -584,7 +588,7 @@ void wait_for_slowlog_work(struct work_struct *work)
 			get_last_shutdown_log();
 			saving_log = 0;
 
-#ifdef CONFIG_MSM_RTB
+#if 0
 			save_rtb_log();
 #endif
 		}
@@ -626,7 +630,7 @@ void slowlog_work(struct work_struct *work)
 			get_last_shutdown_log();
 			saving_log = 0;
 
-#ifdef CONFIG_MSM_RTB
+#if 0
 			save_rtb_log();
 #endif
 
@@ -1709,8 +1713,22 @@ static int qpnp_pon_config_kpdpwr_init(struct qpnp_pon *pon,
 		return cfg->state_irq;
 	}
 
+
+#ifdef FORCE_RAMDUMP_FEATURE
+	if(g_force_ramdump) {
+		printk("qpnp_pon_config_kpdpwr_init: support reset.\n");
+		rc = 0;
+		cfg->support_reset = 1;
+	} else {
+
+		rc = of_property_read_u32(node, "qcom,support-reset",
+				  &cfg->support_reset);
+	}
+#else
 	rc = of_property_read_u32(node, "qcom,support-reset",
 				  &cfg->support_reset);
+#endif
+
 	if (rc) {
 		if (rc != -EINVAL) {
 			dev_err(pon->dev, "Unable to read qcom,support-reset, rc=%d\n",
@@ -1918,6 +1936,20 @@ static int qpnp_pon_config_parse_reset_info(struct qpnp_pon *pon,
 	return 0;
 }
 
+#ifdef FORCE_RAMDUMP_FEATURE
+static int qpnp_pon_config_parse_reset_info_pwr(struct qpnp_pon *pon,
+					    struct qpnp_pon_config *cfg,
+					    struct device_node *node)
+{
+	//cfg->s1_timer = 4480;
+	cfg->s1_timer = 10250;
+	cfg->s2_timer = 10;
+	cfg->s2_type = 1;
+
+	return 0;
+}
+#endif
+
 static int qpnp_pon_config_init(struct qpnp_pon *pon,
 				struct platform_device *pdev)
 {
@@ -1977,7 +2009,15 @@ static int qpnp_pon_config_init(struct qpnp_pon *pon,
 			return -EINVAL;
 		}
 
+#ifdef FORCE_RAMDUMP_FEATURE
+		if(cfg->pon_type == PON_KPDPWR && g_force_ramdump) {
+			rc = qpnp_pon_config_parse_reset_info_pwr(pon, cfg, cfg_node);
+		} else {
+			rc = qpnp_pon_config_parse_reset_info(pon, cfg, cfg_node);
+		}
+#else
 		rc = qpnp_pon_config_parse_reset_info(pon, cfg, cfg_node);
+#endif
 		if (rc)
 			return rc;
 

@@ -359,24 +359,62 @@ int i2c_get_ec_ready_state(void)
 	return ret;
 }
 
-int i2c_set_ultra_power_mode(u8 type)
+int i2c_set_ultra_low_power_mode(u8 type)		// 1:In, 0:Out
 {
 	int ret = 0;
 	char cmd[2] = {0};
 	
-	cmd[0] = CMD_I2C_SET_COVER_STATE;
+	cmd[0] = CMD_I2C_SET_ULTRA_LOW_POWER_MODE;	//0x0C
+	cmd[1] = type;
+
+	ret = ec_i2c_write(ec_i2c_data->client,cmd,2);
+	if(ret < 0)
+	{
+		printk("[EC_I2C] CMD_I2C_SET_ULTRA_LOW_POWER_MODE I2C error\n");
+		ec_i2c_ultra_mode = 0;
+		return -1 ;
+	}
+
+	printk("[EC_I2C] CMD_I2C_SET_ULTRA_LOW_POWER_MODE: Type %d\n", cmd[1]);
+	ec_i2c_ultra_mode = (int)type;
+	return ret;
+}
+
+int i2c_set_phone_panel_state(u8 type)		// 1:On, 0:Off
+{
+	int ret = 0;
+	char cmd[2] = {0};
+	
+	cmd[0] = CMD_I2C_SET_PHONE_PANEL_STATE;	//0x20
+	cmd[1] = type;
+
+	ret = ec_i2c_write(ec_i2c_data->client,cmd,2);
+	if(ret < 0)
+	{
+		printk("[EC_I2C] CMD_I2C_SET_PHONE_PANEL_STATE I2C error\n");
+		return -1 ;
+	}
+
+	printk("[EC_I2C] CMD_I2C_SET_PHONE_PANEL_STATE: Type %d\n", cmd[1]);
+	return ret;
+}
+
+int i2c_set_station_cover_state(u8 type)	// 1:Close, 0:Open
+{
+	int ret = 0;
+	char cmd[2] = {0};
+	
+	cmd[0] = CMD_I2C_SET_COVER_STATE;	//0x21
 	cmd[1] = type;
 
 	ret = ec_i2c_write(ec_i2c_data->client,cmd,2);
 	if(ret < 0)
 	{
 		printk("[EC_I2C] CMD_I2C_SET_COVER_STATE I2C error\n");
-		ec_i2c_ultra_mode = 0;
 		return -1 ;
 	}
 
 	printk("[EC_I2C] CMD_I2C_SET_COVER_STATE: Type %d\n", cmd[1]);
-	ec_i2c_ultra_mode = (int)type;
 	return ret;
 }
 
@@ -1933,7 +1971,9 @@ static int ec_i2c_remove(struct i2c_client *client)
 	ec_battery_func.i2c_get_battery_cur = NULL;
 	ec_battery_func.i2c_get_battery_vol = NULL;
 	ec_battery_func.i2c_get_charger_type = NULL;
-	ec_battery_func.i2c_set_ultra_power_mode = NULL;
+	ec_battery_func.i2c_set_ultra_low_power_mode = NULL;
+	ec_battery_func.i2c_set_phone_panel_state = NULL;
+	ec_battery_func.i2c_set_station_cover_state = NULL;
 
 	ec_set_dp_display.i2c_set_dp_display_id = NULL;
 	ec_set_dp_display.i2c_set_display_bl = NULL;
@@ -2025,7 +2065,9 @@ static int ec_i2c_probe(struct i2c_client *client, const struct i2c_device_id *i
 	ec_battery_func.i2c_get_battery_cur = i2c_get_battery_cur;
 	ec_battery_func.i2c_get_battery_vol = i2c_get_battery_vol;
 	ec_battery_func.i2c_get_charger_type = i2c_get_charger_type;
-	ec_battery_func.i2c_set_ultra_power_mode = i2c_set_ultra_power_mode;
+	ec_battery_func.i2c_set_ultra_low_power_mode = i2c_set_ultra_low_power_mode;
+	ec_battery_func.i2c_set_phone_panel_state = i2c_set_phone_panel_state;
+	ec_battery_func.i2c_set_station_cover_state = i2c_set_station_cover_state;
 
 	ec_set_dp_display.i2c_set_dp_display_id = i2c_set_dp_display_id;
 	ec_set_dp_display.i2c_set_display_bl = i2c_set_display_bl;
@@ -2102,7 +2144,7 @@ int ec_i2c_suspend(struct device *dev)
 	printk("[EC_I2C][Suspend] g_station_sleep : %d, lid_status : %d!\n", g_station_sleep, lid_status);
 	if (g_station_sleep && lid_status){
 		//ec_i2c_ultra_mode = 1;
-		i2c_set_ultra_power_mode(1);
+		i2c_set_ultra_low_power_mode(1);
 	}
 */
 	return err;
@@ -2113,13 +2155,12 @@ int ec_i2c_resume(struct device *dev)
 	int err = 0;
 	ec_i2c_is_suspend = 0;
 	//printk("[EC_I2C] ec_i2c_resume : %d!\n",ec_i2c_is_suspend);
-
 /*
 	printk("[EC_I2C][Resume] g_station_sleep : %d, lid_status : %d, ec_i2c_ultra_mode : %d\n", g_station_sleep, lid_status, ec_i2c_ultra_mode);
 	if (ec_i2c_ultra_mode == 1)
 	{
 		//printk("[EC_I2C] do ultra mode here\n");
-		i2c_set_ultra_power_mode(0);
+		i2c_set_ultra_low_power_mode(0);
 	}
 	ec_i2c_ultra_mode = 0;
 */

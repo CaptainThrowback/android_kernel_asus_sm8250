@@ -144,7 +144,8 @@ static uint32_t frame_size;
 /* ASUS METHODS                                                                  */
 /*==========================================================================*/
 static int finish_boot = 0;
-int GRIP_TAP_LINK_VIBRATOR = 0x303; //Trigger 1 & 2 => Trigger 3
+int G_grip_tap_vib1_reg = 0x300; //Trigger 3
+int G_grip_tap_vib2_reg = 0x500; //Trigger 5
 extern int Health_Check(uint16_t val);
 void asus_init_state(void){
 	int ret;
@@ -153,8 +154,10 @@ void asus_init_state(void){
 	uint16_t i2c_addr = 0x4C2C;
 #ifndef FACTORY_FLAG
 	int j=0, tap_algo_num=4, slide_algo_num=2, swipe_algo_num=2, squeeze_algo_num=2;
-	uint16_t er1_trig3_puls_dur = 0xb; //the pulse width bigger than 1us
-	uint16_t er1_trig3_control = 0x0200; //magic number from sentons
+	uint16_t trig3_puls_dur = 0xb; //the pulse width bigger than 1us
+	uint16_t trig3_control = 0x0200; //magic number from sentons
+	uint16_t trig5_puls_dur = 0xb; //the pulse width bigger than 1us
+	uint16_t trig5_control = 0x0002; //magic number from sentons
 #endif
 	reg_enable.padding = 0;
 	Health_Check(0xffff);
@@ -167,9 +170,12 @@ void asus_init_state(void){
 	Raw_data = 0x8;
 
 	PRINT_INFO("Set tap gesture ");
-	write_register(snt8100fsr_g, REGISTER_TIRGGER3_PULSE_DUR, &er1_trig3_puls_dur);
-	write_register(snt8100fsr_g, REGISTER_TIRGGER3_CONTROL, &er1_trig3_control);
-	write_register(snt8100fsr_g, REGISTER_TIRGGER_LINK, &GRIP_TAP_LINK_VIBRATOR);
+	write_register(snt8100fsr_g, REGISTER_TIRGGER3_PULSE_DUR, &trig3_puls_dur);
+	write_register(snt8100fsr_g, REGISTER_TIRGGER3_CONTROL, &trig3_control);
+	write_register(snt8100fsr_g, REGISTER_TIRGGER_LINK1, &G_grip_tap_vib1_reg);
+	write_register(snt8100fsr_g, REGISTER_TIRGGER5_PULSE_DUR, &trig5_puls_dur);
+	write_register(snt8100fsr_g, REGISTER_TIRGGER5_CONTROL, &trig5_control);
+	write_register(snt8100fsr_g, REGISTER_TIRGGER_LINK2, &G_grip_tap_vib2_reg);
 	
 	for(j=0;j<tap_algo_num;j++){
 		set_tap_gesture(j, TAP_BIT0[j], 0);
@@ -431,6 +437,7 @@ int start_event_processing(struct snt8100fsr *snt8100fsr) {
     ret = read_register(snt8100fsr, REGISTER_EVENT, &reg_event);
     if (ret) {
         PRINT_CRIT("sb_read_register() failed");
+        mutex_unlock(&snt8100fsr_g->ap_lock);
         return -1;
     }
 
@@ -444,6 +451,7 @@ int start_event_processing(struct snt8100fsr *snt8100fsr) {
     product_string = memory_allocate(PRODUCT_CONFIG_MAX_LEN, 0);
     if (product_string == NULL) {
         PRINT_CRIT("memory_allocate(PRODUCT_CONFIG_MAX_LEN) failed");
+        mutex_unlock(&snt8100fsr_g->ap_lock);
         return -1;
     }
 
@@ -467,6 +475,7 @@ int start_event_processing(struct snt8100fsr *snt8100fsr) {
     ret = write_register(snt8100fsr, REGISTER_FRAME_RATE, &snt8100fsr->frame_rate);
     if (ret) {
         PRINT_CRIT("Unable to set frame rate");
+        mutex_unlock(&snt8100fsr_g->ap_lock);
         return -1;
     }
 
@@ -509,6 +518,7 @@ int start_event_processing(struct snt8100fsr *snt8100fsr) {
     ret = read_register(snt8100fsr, REGISTER_ENABLE, &reg_enable);
     if (ret) {
         PRINT_CRIT("Unable to read register enable");
+        mutex_unlock(&snt8100fsr_g->ap_lock);
         return -1;
     }
     PRINT_INFO("Touch processing currently set to %d", reg_enable.enable);
@@ -522,11 +532,13 @@ int start_event_processing(struct snt8100fsr *snt8100fsr) {
     ret = write_register(snt8100fsr, REGISTER_ENABLE, &reg_enable);
     if (ret) {
         PRINT_CRIT("sb_read_register() failed");
+        mutex_unlock(&snt8100fsr_g->ap_lock);
         return -1;
     }
     ret = read_register(snt8100fsr, REGISTER_ENABLE, &reg_enable);
     if (ret) {
         PRINT_CRIT("Unable to read register enable");
+        mutex_unlock(&snt8100fsr_g->ap_lock);
         return -1;
     }
 
@@ -535,6 +547,7 @@ int start_event_processing(struct snt8100fsr *snt8100fsr) {
     } else {
 #ifdef TOUCH_ENABLED_AT_STARTUP		
         PRINT_CRIT("Unable to enable hardware touch processing");
+        mutex_unlock(&snt8100fsr_g->ap_lock);
         return -1;		
 #else
         PRINT_INFO("Hardware touch processing is disabled");

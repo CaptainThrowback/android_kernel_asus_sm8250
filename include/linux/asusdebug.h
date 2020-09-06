@@ -56,7 +56,7 @@ void save_all_thread_info(void);
 void delta_all_thread_info(void);
 void save_phone_hang_log(int delta);
 void save_last_shutdown_log(char *filename);
-#if defined(CONFIG_MSM_RTB)
+#if 0
 void save_rtb_log(void);
 #endif
 void get_last_shutdown_log(void);

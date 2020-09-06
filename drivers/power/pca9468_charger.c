@@ -219,7 +219,6 @@
 #define PCA9468_SNSRES_5mOhm			0x00
 #define PCA9468_SNSRES_10mOhm			PCA9468_BIT_SNSRES
 extern int g_fv_setting;//Add for battery safety upgrade
-extern bool smartchg_slow_flag;
 /* VIN Overvoltage setting from 2*VOUT */
 enum {
 	OV_DELTA_10P,
@@ -774,11 +773,6 @@ static int pca9468_send_pd_message(struct pca9468_charger *pca9468, unsigned int
 	unsigned int new_ta_vol;
 
 	int ret = 0;
-
-	if (smartchg_slow_flag) {
-		pca9468->ta_cur = 1000000;
-		pr_info("[PCA] slow charging is enabled, set ta_cur to 1A\n");
-	}
 	
 	mutex_lock(&pca9468->lock);
 
@@ -1939,12 +1933,14 @@ error:
 	return ret;
 }
 
-
+extern int thermal_virtual_therm_get(void);
 /* 2:1 Direct Charging CC MODE control */
 static int pca9468_charge_ccmode(struct pca9468_charger *pca9468)
 {
 	int ret = 0;
 	int ccmode;
+	int virtual_therm = 0;
+	static bool virtual_therm_alert = false;
 	
 	pr_info("[PCA] %s: ======START=======\n", __func__);
 
@@ -1955,6 +1951,9 @@ static int pca9468_charge_ccmode(struct pca9468_charger *pca9468)
 		ret = ccmode;
 		goto error;
 	}
+	
+	virtual_therm = thermal_virtual_therm_get();
+	printk("virtual_therm = %d\n", virtual_therm);
 	
 	switch(ccmode) {
 	case CCMODE_LOOP_INACTIVE1:
@@ -2000,7 +1999,9 @@ static int pca9468_charge_ccmode(struct pca9468_charger *pca9468)
 						}
 					}
 					//if (g_PanelOnOff && (pca9468->pdata->iin_cfg > PCA9468_CC1_IIN_CFG_3A)) {
-					else if (g_PanelOnOff && (pca9468->pdata->iin_cfg > g_panel_on_iin)) {
+					else if ((g_PanelOnOff && (pca9468->pdata->iin_cfg > g_panel_on_iin)) || (virtual_therm > 45000 || virtual_therm_alert)) {
+						virtual_therm_alert = true;
+						
 						/* panel on, TA current  to PCA9468_CC1_IIN_CFG_3A(1400mA) */
 						//if (pca9468->ta_cur != PCA9468_CC1_IIN_CFG_3A) {
 						if (pca9468->ta_cur != g_panel_on_iin) {
@@ -2034,6 +2035,10 @@ static int pca9468_charge_ccmode(struct pca9468_charger *pca9468)
 									__func__, pca9468->pdata->iin_cfg, pca9468_read_adc(pca9468, ADCCH_IIN), pca9468->ta_cur);
 						}
 					}
+					
+					if (virtual_therm < 42000) {
+						virtual_therm_alert = false;
+					}
 				} else {
 					/* NTC stage 2 */
 					/* Check TA current */
@@ -2045,7 +2050,9 @@ static int pca9468_charge_ccmode(struct pca9468_charger *pca9468)
 								goto error;
 	
 						pr_info("[PCA] %s: NTC stage2(screen on + INBOX), ta_cur:%d(mA)\n", __func__, pca9468->ta_cur);
-					} else if (g_PanelOnOff && (pca9468->ta_cur > g_inov_overtemp_iin_low)) {
+					} else if ((g_PanelOnOff && (pca9468->ta_cur > g_inov_overtemp_iin_low)) || (virtual_therm > 45000 || virtual_therm_alert)) {
+						virtual_therm_alert = true;
+						
 						pca9468->ta_cur = g_inov_overtemp_iin_low;
 						/* Send PD Message */
 						ret = pca9468_send_pd_message(pca9468, PD_MSG_REQUEST_APDO);
@@ -2065,6 +2072,10 @@ static int pca9468_charge_ccmode(struct pca9468_charger *pca9468)
 								goto error;
 	
 						pr_info("[PCA] %s: NTC stage2(screen off), ta_cur:%d(mA)\n", __func__, pca9468->ta_cur);
+					}
+					
+					if (virtual_therm < 42000) {
+						virtual_therm_alert = false;
 					}
 				}
 			}
@@ -4032,8 +4043,8 @@ static int pca9468_fb_callback(struct notifier_block *nb, unsigned long val, voi
 
 			g_PanelOnOff = 0;
 			if (!gpio_get_value_cansleep(global_gpio->BTM_OVP_ACOK)) {
-				g_inov_temp_max = 55000;//Change from 48->53
-				g_inov_temp_min = 52000;//Change from 45->50
+				g_inov_temp_max = 49000;//Change from 48->53
+				g_inov_temp_min = 46000;//Change from 45->50
 			} else {
 				g_inov_temp_max = 57000;//Change from 48->53
 				g_inov_temp_min = 54000;//Change from 45->50
@@ -4199,6 +4210,24 @@ static const struct attribute_group pca9468_attr_group = {
 	.attrs = pca9468_attrs,
 };
 // ASUS BSP Austin_T : Add attributes ---
+
+void pca9468_enable_slow_charging(bool enable) {
+	if (enable) {
+		printk("pca9468_enable_slow_charging: enable slow charging\n");
+		g_panel_off_iin = 1000000;
+		g_panel_on_iin = 1000000;
+		g_high_volt_4P25_iin = 1000000;
+		g_inov_overtemp_iin = 1000000;
+		g_inov_overtemp_iin_low = 1000000;
+	} else {
+		printk("pca9468_enable_slow_charging: disable slow charging\n");
+		g_panel_off_iin = 2900000;
+		g_panel_on_iin = 2000000;
+		g_high_volt_4P25_iin = 2000000;
+		g_inov_overtemp_iin = 2000000;
+		g_inov_overtemp_iin_low = 1400000;
+	}
+}
 
 extern struct drm_panel *active_panel_asus;
 static int pca9468_probe(struct i2c_client *client,

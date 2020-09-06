@@ -750,6 +750,7 @@ static int report_gesture_key(struct input_dev *dev, char keycode)
 			input_switch_key(dev, KEY_F);
 			ts_info("KEY_F");
 			input_report_key(dev, BTN_TOUCH, 1);
+			input_mt_slot(dev, 0);
 			input_mt_report_slot_state(dev, MT_TOOL_FINGER, true);
 			input_report_abs(dev, ABS_MT_POSITION_X, data_x);
 			input_report_abs(dev, ABS_MT_POSITION_Y, data_y);
@@ -759,7 +760,9 @@ static int report_gesture_key(struct input_dev *dev, char keycode)
 			ts_info("Gesture KEY_F -- X/Y/W data: %d,%d,%d",data_x,data_y,data_w);
 			asus_display_report_fod_touched();
 			enable_aod_processing(true);
-			
+
+			input_mt_slot(dev, 0);
+			input_mt_report_slot_state(dev, MT_TOOL_FINGER, false);
 			input_report_abs(dev, ABS_MT_TOUCH_MAJOR, 0);
 			input_report_abs(dev, ABS_MT_PRESSURE, 0);
 			input_report_key(dev, BTN_TOUCH, 0);
@@ -775,6 +778,11 @@ static int report_gesture_key(struct input_dev *dev, char keycode)
 		if(keycode == 'L') {
 			input_switch_key(dev, KEY_L);
 			ts_info("KEY_L");
+			return 3;
+		}
+		if(keycode == 0x4f) {
+			input_switch_key(dev, KEY_O);
+			ts_info("KEY_O");
 			return 3;
 		}
 	}

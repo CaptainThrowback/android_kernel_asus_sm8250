@@ -38,6 +38,11 @@ extern int G_virtual_therm_temp;
 extern int G_virtual_therm_temp_prev;
 bool G_use_backup_therm_flag = false;
 
+int thermal_virtual_therm_get(void){
+	return G_virtual_therm_temp;
+}
+EXPORT_SYMBOL(thermal_virtual_therm_get);
+
 static int smooth_virtual_therm_temp(int temp){
 	int cur_shift_temp = 200;
 	/* G_virtual_therm_temp will be 0 by default (1st) */

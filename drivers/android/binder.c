@@ -3022,9 +3022,9 @@ static void binder_transaction(struct binder_proc *proc,
 	int t_debug_id = atomic_inc_return(&binder_last_id);
 	char *secctx = NULL;
 	u32 secctx_sz = 0;
-#ifdef CONFIG_CGF_NOTIFY_EVENT
+/*#ifdef CONFIG_CGF_NOTIFY_EVENT
 	struct cgf_event event;
-#endif
+#endif*/
 	e = binder_transaction_log_add(&binder_transaction_log);
 	e->debug_id = t_debug_id;
 	e->call_type = reply ? 2 : !!(tr->flags & TF_ONE_WAY);
@@ -3234,7 +3234,7 @@ static void binder_transaction(struct binder_proc *proc,
 	else
 		t->from = NULL;
 
-#ifdef CONFIG_CGF_NOTIFY_EVENT
+/*#ifdef CONFIG_CGF_NOTIFY_EVENT
 	//	struct cgf_event event;
 	if (frozen(target_proc->tsk) || freezing(target_proc->tsk)){
 		event.type = 0;
@@ -3248,7 +3248,7 @@ static void binder_transaction(struct binder_proc *proc,
 		//printk(KERN_ERR"[CGF] %s, target_proc->tsk->pid: %d\n", __func__, target_proc->tsk->pid);
 		//cgf_notifier_call_chain(0, &event);		
 	}
-#endif	
+#endif	*/
 
 
 	t->sender_euid = task_euid(proc->tsk);

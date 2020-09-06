@@ -4743,6 +4743,7 @@ static ssize_t smartchg_stop_charging_store(struct device *dev,
 	return len;
 }
 
+extern void pca9468_enable_slow_charging(bool enable);
 static ssize_t smartchg_stop_charging_show(struct device *dev, struct device_attribute *attr, char *buf)
 {
 	return sprintf(buf, "%d\n", smartchg_stop_flag);
@@ -4765,6 +4766,7 @@ static ssize_t smartchg_slow_charging_store(struct device *dev,
 		jeita_rule();
 	}
 
+	pca9468_enable_slow_charging(tmp);
 	return len;
 }
 

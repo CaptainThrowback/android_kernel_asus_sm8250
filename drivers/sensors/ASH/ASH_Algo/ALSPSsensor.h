@@ -57,6 +57,7 @@
  * when the current lux value change over 100 lux from the last lux.
  */
 #define LIGHT_LOG_THRESHOLD					(100)
+#define LIGHT_LOG_LOW_LUX_THRESHOLD					(20)
 
 /**
  * @ALSPS_DEFAULT_VALUE : Define the default value for driver data.

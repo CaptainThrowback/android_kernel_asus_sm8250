@@ -1197,6 +1197,9 @@ void smblib_hvdcp_detect_enable(struct smb_charger *chg, bool enable)
 	int rc;
 	u8 mask;
 
+	CHG_DBG("Skip smblib_hvdcp_detect_enable() for aohai adapter WA");
+	return;//WA for aohai adapter
+
 	mask = HVDCP_AUTH_ALG_EN_CFG_BIT | HVDCP_EN_BIT;
 	rc = smblib_masked_write(chg, USBIN_OPTIONS_1_CFG_REG, mask,
 						enable ? mask : 0);
@@ -2703,6 +2706,7 @@ int smblib_get_prop_batt_health(struct smb_charger *chg,
 		rc = smblib_get_prop_from_bms(chg,
 				POWER_SUPPLY_PROP_VOLTAGE_NOW, &pval);
 		if (!rc) {
+#if 0
 			/*
 			 * If Vbatt is within 40mV above Vfloat, then don't
 			 * treat it as overvoltage.
@@ -2714,6 +2718,12 @@ int smblib_get_prop_batt_health(struct smb_charger *chg,
 						pval.intval, effective_fv_uv);
 				goto done;
 			}
+#else
+			val->intval = POWER_SUPPLY_HEALTH_OVERVOLTAGE;
+			smblib_err(chg, "battery over-voltage vbat_fg = %duV, fv = %duV\n",
+					pval.intval, effective_fv_uv);
+			goto done;
+#endif
 		}
 	}
 
@@ -5897,6 +5907,7 @@ void asus_typec_removal_function(struct smb_charger *chg)
 	cancel_delayed_work(&chg->asus_slow_insertion_work);
 	cancel_delayed_work(&chg->asus_set_usb_extcon_work);
 	cancel_delayed_work(&chg->asus_write_mux_setting_3);
+	cancel_delayed_work(&chg->asus_check_vbus_work);//WA for aohai adapter
 	//ASUS BSP : Add for battery health upgrade +++
 
 	if (g_fgDev != NULL) {
@@ -6045,6 +6056,7 @@ void smblib_asus_monitor_start(struct smb_charger *chg, int time)
 	schedule_delayed_work(&chg->asus_min_monitor_work, msecs_to_jiffies(time));
 
 	schedule_delayed_work(&chg->asus_enable_inov_work, msecs_to_jiffies(60000));
+	schedule_delayed_work(&chg->asus_check_vbus_work, msecs_to_jiffies(60000));//WA for aohai adapter
 }
 
 void pca_jeita_stop_pmic_notifier(int stage)
@@ -7471,6 +7483,13 @@ void asus_insertion_initial_settings(struct smb_charger *chg)
 	rc = smblib_write(smbchg_dev, HVDCP_PULSE_COUNT_MAX_REG, 0x54);
 	if (rc < 0)
 		CHG_DBG_E("Failed to set HVDCP_PULSE_COUNT_MAX_REG\n");
+
+//[+++]WA for aohai adapter
+	rc = smblib_write(chg, USBIN_OPTIONS_1_CFG_REG, 0x1E);
+	if (rc < 0) {
+		dev_err(chg->dev, "Couldn't set USBIN_OPTIONS_1_CFG_REG to 0x1E rc=%d\n", rc);
+	}
+//[---]WA for aohai adapter
 }
 //ASUS BSP : Add ASUS Adapter Detecting ---
 
@@ -7967,6 +7986,47 @@ void asus_enable_inov_work(struct work_struct *work)
 	asus_enable_inov(usb_present);
 }
 //ASUS BSP : Add for enable INOV work ---
+
+// WA for aohai adapter +++
+void asus_check_vbus_work(struct work_struct *work)
+{
+	int rc;
+	union power_supply_propval voltage_val;
+	u8 stat;
+	int i;
+
+	smblib_get_prop_usb_voltage_now(smbchg_dev, &voltage_val);
+
+	rc = smblib_read(smbchg_dev, APSD_RESULT_STATUS_REG, &stat);
+	if (rc < 0)
+		CHG_DBG_E("Couldn't read APSD_RESULT_STATUS rc=%d\n", rc);
+
+	CHG_DBG("input_voltage = %d, 0x1308 = 0x%x", voltage_val.intval, stat);
+	if((voltage_val.intval < 8000000) && stat == 0x48){
+		for(i=0; i<20; i++){
+			rc = smblib_write(smbchg_dev, 0x1343, 0x01);
+			if (rc < 0)
+				CHG_DBG_E("Couldn't set 0x1362 to 0x3E rc=%d\n", rc);
+
+			msleep(100);
+		}
+
+		msleep(5000);
+
+		smblib_get_prop_usb_voltage_now(smbchg_dev, &voltage_val);
+
+		if(voltage_val.intval < 5250000){
+			rc = smblib_write(smbchg_dev, 0x1343, 0x10);
+			if (rc < 0)
+				CHG_DBG_E("Couldn't set 0x1343 to 0x10 rc=%d\n", rc);
+		}
+
+		rc = asus_exclusive_vote(smbchg_dev->usb_icl_votable, ASUS_ICL_VOTER, true, 1750000);
+		if (rc < 0)
+			CHG_DBG_E("Failed to set USBIN_CURRENT_LIMIT to 500mA\n");
+	}
+}
+// WA for aohai adapter ---
 
 //[+++]Implement the ASUS SW INOV
 //#define asus_ATM_min	700000; //The min value of ATM is 700mA
@@ -11230,6 +11290,7 @@ int smblib_init(struct smb_charger *chg)
 	INIT_DELAYED_WORK(&chg->asus_30W_Dual_chg_work, asus_30W_Dual_chg_work);
 	INIT_DELAYED_WORK(&chg->asus_enable_inov_work, asus_enable_inov_work);
 	INIT_DELAYED_WORK(&chg->asus_set_usb_extcon_work, asus_set_usb_extcon_work);
+	INIT_DELAYED_WORK(&chg->asus_check_vbus_work, asus_check_vbus_work);// WA for aohai adapter
 	alarm_init(&bat_alarm, ALARM_REALTIME, batAlarm_handler);
 	//ASUS BSP : Add the work ---
 

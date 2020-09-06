@@ -16,7 +16,9 @@
 #define CMD_I2C_SET_DUTY            0x06
 #define CMD_I2C_SET_FACTORY_MODE    0x08
 #define CMD_I2C_DISABLE_CHARGER_SUSPEND  0x0B
-#define CMD_I2C_SET_COVER_STATE     0x0C
+//#define CMD_I2C_SET_COVER_STATE     0x0C		// Station 2 define
+#define CMD_I2C_SET_ULTRA_LOW_POWER_MODE  0x0C	// Station 3 define
+
 #define CMD_I2C_SET_BATTERY_48H_STATE    0x0E
 #define CMD_I2C_SET_EC_SSN          0x0F
 #define CMD_I2C_WRITE_MODEL_NAME    0x10
@@ -26,6 +28,9 @@
 #define CMD_I2C_CONTROL_DISPLAY     0x16
 #define CMD_I2C_SET_COLOR_TEMP      0x17
 #define CMD_I2C_SET_HBM             0x18
+#define CMD_I2C_SET_PHONE_PANEL_STATE     0x20	// Station 3 define, Station 2 none.
+#define CMD_I2C_SET_COVER_STATE     0x21		// Station 3 define, Station 2 none.
+
 #define CMD_I2C_ENABLE_MIPI         0x50
 #define CMD_I2C_DISCONNECT_PORTA_CC	0x70
 #define CMD_I2C_CONNECT_PORTA_CC	0x71

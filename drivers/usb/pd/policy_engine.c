@@ -88,6 +88,7 @@ extern int ec_hid_event_unregister(struct notifier_block *nb);
 #else
 static uint8_t gDongleType;
 #endif
+extern bool g_Charger_mode;
 
 enum POGO_ID {
 	NO_INSERT = 0,
@@ -1021,6 +1022,7 @@ static int pd_eval_src_caps_asus(struct usbpd *pd)
 		}
 	}
 
+	pd->asus_fix_pdo_charging = false;
 	if (!pps_found)
 		pd->asus_fix_pdo_charging = true;
 
@@ -3251,7 +3253,7 @@ static void enter_state_snk_ready(struct usbpd *pd)
 	complete(&pd->is_ready);
 	typec_set_pwr_opmode(pd->typec_port, TYPEC_PWR_MODE_PD);
 
-	if (!station_boot_check && gDongleType == 100 && pd->current_dr == DR_UFP) {
+	if (!station_boot_check && gDongleType == 100 && pd->current_dr == DR_UFP && !g_Charger_mode) {
 			pr_info("goto recovery cc when get wrong state in station\n");
 			usbpd_set_state(pd, PE_ERROR_RECOVERY);
 	}

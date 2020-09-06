@@ -61,7 +61,6 @@ static int tcpc_dual_role_set_prop_pr(const struct typec_capability *cap,
 			__func__, tcpc->dual_role_pr, val, ret);
 	}
 
-	typec_set_pwr_role(tcpc->typec_port, trole);
 	return ret;
 }
 
@@ -96,7 +95,6 @@ static int tcpc_dual_role_set_prop_dr(const struct typec_capability *cap,
 	pr_info("%s data role swap (%d->%d): %d\n",
 		__func__, tcpc->dual_role_dr, val, ret);
 
-	typec_set_data_role(tcpc->typec_port, data);
 	return ret;
 }
 
@@ -131,7 +129,6 @@ static int tcpc_dual_role_set_prop_vconn(const struct typec_capability *cap,
 	pr_info("%s vconn swap (%d->%d): %d\n",
 		__func__, tcpc->dual_role_vconn, val, ret);
 
-	typec_set_vconn_role(tcpc->typec_port, trole);
 	return ret;
 }
 

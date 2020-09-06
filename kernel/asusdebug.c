@@ -890,7 +890,7 @@ void save_last_shutdown_log(char *filename)
 	deinitKernelEnv();
 }
 
-#ifdef CONFIG_QCOM_RTB
+#if 0
 extern struct msm_rtb_state msm_rtb;
 int g_saving_rtb_log = 1;
 void save_rtb_log(void)
@@ -1507,7 +1507,7 @@ static ssize_t asusdebug_write(struct file *file, const char __user *buf, size_t
 			save_phone_hang_log(1);
 			get_last_shutdown_log();
 			printk("[ASDF] get_last_shutdown_log: printk_buffer_slot2_addr=%x, value=0x%lx\n", printk_buffer_slot2_addr, *printk_buffer_slot2_addr);
-#ifdef CONFIG_QCOM_RTB
+#if 0
 			if ((*printk_buffer_slot2_addr) == (ulong)PRINTK_BUFFER_MAGIC)
 				save_rtb_log();
 #endif
@@ -1526,7 +1526,7 @@ static ssize_t asusdebug_write(struct file *file, const char __user *buf, size_t
 			(*printk_buffer_slot2_addr) = (ulong)PRINTK_BUFFER_MAGIC;
 			printk("[ASDF] set printk_buffer_slot2_addr=%x, value=0x%lx\n", printk_buffer_slot2_addr, *printk_buffer_slot2_addr);
 		}
-#ifdef CONFIG_QCOM_RTB 
+#if 0
 		g_saving_rtb_log = 0;
 #endif
 	} else if (strncmp(messages, "slowlog", strlen("slowlog")) == 0) {

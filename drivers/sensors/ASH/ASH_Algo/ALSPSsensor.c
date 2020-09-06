@@ -62,7 +62,8 @@ static struct mutex 				g_i2c_lock;
 static struct wake_lock 			g_alsps_wake_lock;
 static struct hrtimer 			g_alsps_timer;
 static struct i2c_client *g_i2c_client;
-static int g_als_last_lux = 0;
+static int g_als_last_lux_irq = 0;
+static int g_als_last_lux_poll = 0;
 static char *g_error_mesg;
 static int resume_flag = 0;
 
@@ -136,7 +137,6 @@ struct psensor_data
 
 	int g_ps_autok_min;
 	int g_ps_autok_max;
-	
 	bool HAL_switch_on;						/* this var. means if HAL is turning on ps or not */
 	bool Device_switch_on;					/* this var. means is turning on ps or not */	
 	bool polling_mode;							/* Polling for adc of proximity */
@@ -149,6 +149,7 @@ struct psensor_data
 	int crosstalk_diff;
 
 	int selection;
+	
 };
 
 struct lsensor_data 
@@ -166,6 +167,7 @@ struct lsensor_data
 	int event_counter;
 
 	int selection;
+	int g_als_retry_count;                          /* polling workqueue retry to get adc count, set 0 when polling cancel */
 };
 
 /*=======================
@@ -454,6 +456,7 @@ static int proximity_set_threshold(void)
 	
 	if(ret > 0) {
 	    	g_ps_data->g_ps_calvalue_hi = ret;
+	    	g_ps_data->g_ps_factory_cal_hi = ret;
 		log("Proximity read High Calibration : %d\n", g_ps_data->g_ps_calvalue_hi);
 	}else{
 		err("Proximity read DEFAULT High Calibration : %d\n", g_ps_data->g_ps_calvalue_hi);
@@ -751,7 +754,7 @@ static void light_polling_lux(struct work_struct *work)
 {
 	int adc = 0;
 	int lux = 0;
-	static int count = 0;
+	static int l_print_log_count = 0;
 
 	/* Check Hardware Support First */
 	if(ALSPS_hw_client->mlsensor_hw->light_hw_get_adc == NULL) {
@@ -763,17 +766,34 @@ mutex_lock(&g_alsps_lock);
 	if(g_als_data->HAL_switch_on == true) {
 		/* Light Sensor Report the first real event*/
 		adc = ALSPS_hw_client->mlsensor_hw->light_hw_get_adc();
-		if ((0 == adc) && (count < 10)) {
+		if ((0 == adc) && (g_als_data->g_als_retry_count < 10)) {
 			cancel_delayed_work(&light_polling_lux_work);
 			queue_delayed_work(ALSPS_delay_workqueue, &light_polling_lux_work, msecs_to_jiffies(LIGHT_RETRY_POLLING_TIME));
-			count++;
-			if(count == 10){
+			g_als_data->g_als_retry_count++;
+			if(g_als_last_lux_poll!=0 && g_als_data->g_als_retry_count == 10){
 				log("[Polling1] Light Sensor retry for get adc\n");
 			}
+			l_print_log_count = 10;
+		} else if( adc < 0 ){
+			log("[Polling] read adc < 0 (%d), do nothing", adc);
 		} else {
-			count = 0;
 			lux = light_get_lux(adc);
-			log("[Polling2] Light Sensor Report lux : %d (adc = %d)\n", lux, adc);
+			l_print_log_count++;
+			if(g_als_last_lux_poll != lux){
+				g_als_last_lux_poll = lux;
+				if(lux < 100){
+					log("[Polling2] Light Sensor Report lux : %d (adc = %d), last_lux=%d, retry_count=%d\n", 
+						lux, adc, g_als_last_lux_poll, g_als_data->g_als_retry_count);
+				}else{
+					if(l_print_log_count >= 10){
+						log("[Polling2] Light Sensor Report lux : %d (adc = %d), last_lux=%d, retry_count=%d\n", 
+							lux, adc, g_als_last_lux_poll, g_als_data->g_als_retry_count);
+						l_print_log_count = 0;
+					}else{
+					}
+				}
+			}else{
+			}
 			cancel_delayed_work(&light_polling_lux_work);
 			queue_delayed_work(ALSPS_delay_workqueue, &light_polling_lux_work, msecs_to_jiffies(LIGHT_POLLING_TIME));
 			lsensor_report_lux(lux);
@@ -1273,6 +1293,7 @@ static int mlight_store_switch_onoff(bool bOn)
 			g_als_data->HAL_switch_on = true;
 			light_turn_onoff(true);
 			/*light sensor polling the first real event after delayed time. */
+			g_als_data->g_als_retry_count = 0;
 			cancel_delayed_work(&light_polling_lux_work);
 			queue_delayed_work(ALSPS_delay_workqueue, &light_polling_lux_work, msecs_to_jiffies(LIGHT_TURNON_DELAY_TIME));
 		} else	{
@@ -1747,8 +1768,12 @@ static void light_work(void)
 		
 		/* Light Sensor Report input event*/
 		lux = light_get_lux(adc);
-
-		light_log_threshold = LIGHT_LOG_THRESHOLD;
+		
+		if(lux < 100){
+			light_log_threshold = LIGHT_LOG_LOW_LUX_THRESHOLD;
+		}else{
+			light_log_threshold = LIGHT_LOG_THRESHOLD;
+		}
 		
 		/* Set the interface log threshold (1st priority) */
 		if(g_als_data->g_als_log_threshold >= 0)
@@ -1758,13 +1783,13 @@ static void light_work(void)
 			log("[ISR] Light Sensor First Report lux : %d (adc = %d)\n", lux, adc);
 			g_als_data->g_als_log_first_event = false;
 		}
-		if(abs(g_als_last_lux - lux) > light_log_threshold)
+		if(abs(g_als_last_lux_irq - lux) > light_log_threshold)
 			log("[ISR] Light Sensor Report lux : %d (adc = %d)\n", lux, adc);
 
 		lsensor_report_lux(lux);
 
 		g_als_data->event_counter++;	/* --- For stress test debug --- */
-		g_als_last_lux = lux;
+		g_als_last_lux_irq = lux;
 		cancel_delayed_work(&light_polling_lux_work);
 		queue_delayed_work(ALSPS_delay_workqueue, &light_polling_lux_work, msecs_to_jiffies(LIGHT_POLLING_TIME));
 	}
@@ -1897,13 +1922,13 @@ wake_lock(&g_alsps_wake_lock);
 		if(ret < 0){
 			err("proximity_hw_turn_onoff(true) ERROR\n");
 			goto ERROR_HANDLE;
-		}			
+		}
 	}
 	
 	msleep(PROXIMITY_TURNON_DELAY_TIME);
 
 	adc_value = ALSPS_hw_client->mpsensor_hw->proximity_hw_get_adc();
-	threshold_high = g_ps_data->g_ps_calvalue_hi;
+	threshold_high = g_ps_data->g_ps_factory_cal_hi;
 
 	if (adc_value >= threshold_high) {
 		status = true;
@@ -2358,8 +2383,10 @@ mutex_lock(&g_alsps_lock);
 		enable_irq_wake(ALSPS_SENSOR_IRQ);
 
 	/* For make sure Light sensor mush be switch off when system suspend */
-	if (g_als_data->Device_switch_on)				
+	if (g_als_data->Device_switch_on){
 		light_suspend_turn_off(false);
+		cancel_delayed_work(&light_polling_lux_work);
+	}
 	
 	cancel_delayed_work(&proximity_polling_adc_work);
 	g_psensor_polling_cancel_flag = true;
@@ -2382,6 +2409,8 @@ static void mALSPS_algo_resume(void)
 	if (g_als_data->Device_switch_on == 0 && g_als_data->HAL_switch_on == 1){
 		resume_flag=1;
 		light_turn_onoff(1);
+		g_als_data->g_als_retry_count = 0;
+		queue_delayed_work(ALSPS_delay_workqueue, &light_polling_lux_work, msecs_to_jiffies(LIGHT_RETRY_POLLING_TIME));
 	}
 	
 	/* If the proximity sensor has been opened and autok has been enabled, 

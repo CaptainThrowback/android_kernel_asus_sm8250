@@ -227,6 +227,7 @@ int upload_firmware(struct snt8100fsr *snt8100fsr, char *filename) {
     // ourselves for how fast the hardware can accept data. So we
     // must setup a background thread with a workerqueue and process
     // the upload a piece at a time.
+	PRINT_INFO("START");
     work = (void *)workqueue_alloc_work(sizeof(struct upload_work),
                                         upload_wq_func);
     if (!work) {
@@ -238,8 +239,12 @@ int upload_firmware(struct snt8100fsr *snt8100fsr, char *filename) {
 	//MUTEX_LOCK(&snt8100fsr_g->ap_lock);
 
 	INIT_DELAYED_WORK(&own_work, upload_wq_func);
+	
+	/* ASUS BSP Clay: protec status change */
+	MUTEX_LOCK(&snt8100fsr_g->ap_lock);
 	snt8100fsr_g->chip_reset_flag = GRIP_FST_FW_DL;
-    work->snt8100fsr = snt8100fsr;
+	mutex_unlock(&snt8100fsr_g->ap_lock);
+	work->snt8100fsr = snt8100fsr;
 
 	/* ASUS BSP Clay: load different fw version according to HWID +++ */
 	if(g_ASUS_hwID < HW_REV_PR){
@@ -270,11 +275,12 @@ int upload_firmware(struct snt8100fsr *snt8100fsr, char *filename) {
     set_bcr_irpt_lvl(BCR_INTERRUPT_TYPE);
     set_bcr_irpt_pol(BCR_INTERRUPT_POLARITY);
 #if BCR_INTERRUPT_TYPE==BCR_IRQ_TYPE_PULSE
-	// Setup interrupt edge duration
-	set_bcr_irpt_dur(0x3f); //one equals 0.0128, so the duratin is 0x3f * 0.0128 = 63*0.0128 = 0.8064 us
+    // Setup interrupt edge duration
+    set_bcr_irpt_dur(0x3f); //one equals 0.0128, so the duratin is 0x3f * 0.0128 = 63*0.0128 = 0.8064 us
 #endif
 
     workqueue_queue_work(&own_work, 0);
+    PRINT_INFO("END");
     return 0;
 }
 
@@ -632,21 +638,28 @@ cleanup:
         irq_handler_unregister(&snt_irq_db);  //[dy] unique to upload_firmware
     }
 
+    /* ASUS BSP Clay: protec status change */
+    MUTEX_LOCK(&snt8100fsr_g->ap_lock);
     snt8100fsr_g->chip_reset_flag = GRIP_FW_DL_END;
-	Grip_check_lock_status();
+    mutex_unlock(&snt8100fsr_g->ap_lock);
+
+    Grip_check_lock_status();
     if(err <= E_SUCCESS) { //[dy] unique to upload_firmware
         snt8100fsr_g->grip_fw_loading_status = true;
+        MUTEX_LOCK(&snt8100fsr_g->ap_lock);
         start_event_processing(w->snt8100fsr);
-		PRINT_INFO("SUCESS to load fw");
+        PRINT_INFO("SUCESS to load fw");
+        if(snt8100fsr_g->Recovery_Flag){
+            queue_delayed_work(asus_wq, &rst_recovery_wk, msecs_to_jiffies(0));
+        }
     }else{
-		PRINT_INFO("FAILED to load fw");
-		ASUSEvtlog("[Grip] Sensor: Load fw fail!!!");
-	    snt8100fsr_g->grip_fw_loading_status = false;
-	    Power_Control(0);
-		mutex_unlock(&snt8100fsr_g->ap_lock);
+        PRINT_INFO("FAILED to load fw");
+        ASUSEvtlog("[Grip] Sensor: Load fw fail!!!");
+        snt8100fsr_g->grip_fw_loading_status = false;
+        Power_Control(0);
     }
-	
-	Grip_check_lock_status();	
+
+    Grip_check_lock_status();
     return;
 }
 

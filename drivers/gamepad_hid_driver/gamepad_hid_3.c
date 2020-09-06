@@ -938,6 +938,8 @@ static void gamepad_usb_remove(struct hid_device *hdev)
 static struct hid_device_id gamepad_idtable[] = {
 	{ HID_USB_DEVICE(0x0B05, 0x7904),
 		.driver_data = 0 },
+	{ HID_USB_DEVICE(0x0B05, 0x7905),
+		.driver_data = 0 },
 	{ HID_USB_DEVICE(0x02E2C, 0x002A),
 		.driver_data = 0 },
 	{ }

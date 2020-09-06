@@ -280,7 +280,7 @@ struct goodix_ts_key {
 /* touch event data */
 struct goodix_touch_data {
 	int touch_num;
-	struct goodix_ts_coords coords[GOODIX_ASUS_MAX_TOUCH];
+	struct goodix_ts_coords coords[GOODIX_MAX_TOUCH];
 	struct goodix_ts_key keys[GOODIX_MAX_TP_KEY];
 };
 

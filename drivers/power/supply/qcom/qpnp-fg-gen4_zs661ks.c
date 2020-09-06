@@ -845,7 +845,7 @@ static int fg_gen4_get_batt_id(struct fg_gen4_chip *chip)
 #define BATT_ID_CRITERIA	51000
 #define BATT_TYPE_OBIWAN_4P35V	"c11p1901_5800mah_jan22nd2020_4p35v"
 #define BATT_TYPE_DEFAULT_4P35V	"alium_860_89032_0000_3600mah_sept24th2018"
-#define BATT_MODELNAME_OBIWAN 	"C11p1901"
+#define BATT_MODELNAME_OBIWAN 	"C11p1903"
 #define BATT_MODELNAME_DEFAULT 	"alium_860"
 #define BATT_ID_51K_INDEX		1
 #define BATT_ID_100K_INDEX		2

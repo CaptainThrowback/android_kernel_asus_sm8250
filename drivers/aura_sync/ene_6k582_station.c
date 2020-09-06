@@ -2946,7 +2946,10 @@ static int ene_6k582_remove(struct i2c_client *client)
 {
 	int err = 0;
 	struct ene_6k582_platform_data *platform_data = i2c_get_clientdata(client);
-
+	if(g_Charger_mode) {
+		printk("[AURA_STATION] In charger mode, stop ene_6k582_remove\n");
+		return 0;
+	}
 	if (!station_aura_pogo){
 		printk("[AURA_STATION] ene_6k582_remove : err %d\n", err);
 		return 0;		
@@ -2980,6 +2983,10 @@ int ene_6k582_suspend(struct device *dev)
 	struct ene_6k582_platform_data *platform_data = i2c_get_clientdata(client);
 	u32 val;
 	u32 delay_time=4000; //the time is delay_time*2.5ms,default is 10s.
+	if(g_Charger_mode) {
+		printk("[AURA_STATION] In charger mode, stop ene_6k582_suspend\n");
+		return 0;
+	}
 	if(g_sleep==1){
 		printk("[AURA_STATION] ene_6k582_suspend not sleep,  return\n");
 		return 0;
@@ -3019,6 +3026,10 @@ int ene_6k582_resume(struct device *dev)
 	unsigned char data[2]={0};
 	struct i2c_client *client = to_i2c_client(dev);
 	struct ene_6k582_platform_data *platform_data = i2c_get_clientdata(client);
+	if(g_Charger_mode) {
+		printk("[AURA_STATION] In charger mode, stop ene_6k582_resume\n");
+		return 0;
+	}
 	if(g_sleep==1){
 		printk("[AURA_STATION] ene_6k582_resume not sleep, return\n");
 		return 0;

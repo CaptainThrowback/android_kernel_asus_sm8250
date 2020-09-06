@@ -69,7 +69,6 @@ struct css_task_iter {
 	struct list_head		iters_node;	/* css_set->task_iters */
 };
 #ifdef CONFIG_CGF_NOTIFY_EVENT
-#define MAX_UNQUEUE_TASK_SIZE 100
 #define FREEZER_SS_NAME	"freezer"
 #define	FREEZER_KN_NAME	""
 #define	FREEZER_BG_KN_NAME	"bg"
@@ -77,9 +76,6 @@ struct cgf_event {
      int type;
 	struct signal_struct *info;
 	void *data;
-	void *unqueue_tasks[MAX_UNQUEUE_TASK_SIZE];
-	int unqueue_tasks_size;
-	int seq_id;
 };
 struct freezer {
 	struct cgroup_subsys_state	css;

@@ -28,7 +28,9 @@ struct ec_battery_interface
 	int (*i2c_get_battery_vol)(int *vol);
 	int (*i2c_get_battery_cur)(short *cur);
 	int (*i2c_get_charger_type)(int *type,short *vol,short *cur);
-	int (*i2c_set_ultra_power_mode)(u8 type);
+	int (*i2c_set_ultra_low_power_mode)(u8 type);
+	int (*i2c_set_phone_panel_state)(u8 type);
+	int (*i2c_set_station_cover_state)(u8 type);
 };
 
 struct ec_set_dp_display_interface

@@ -63,7 +63,7 @@ static void scm_disable_sdi(void);
  * There is no API from TZ to re-enable the registers.
  * So the SDI cannot be re-enabled when it already by-passed.
  */
-int download_mode = 1;
+
 static struct kobject dload_kobj;
 
 static int in_panic;
@@ -80,6 +80,41 @@ static void *emergency_dload_mode_addr;
 static bool scm_dload_supported;
 
 static bool force_warm_reboot;
+
+#ifdef FORCE_RAMDUMP_FEATURE
+void set_dload_mode(int on);
+int g_force_ramdump = 0;
+int download_mode = 1;
+static int set_download_mode(char *str)
+{
+	if ( strcmp("y", str) == 0 || strcmp("Y", str) == 0 ) {
+		download_mode = 1;
+		g_force_ramdump = 1;
+		set_dload_mode(download_mode);
+	} else
+		download_mode = 0;
+
+	printk("download mode = %d\n",download_mode);
+	return 0;
+}
+__setup("RDUMP=", set_download_mode);
+static int set_download_mode_by_uart(char *str)
+{
+	if ( strcmp("y", str) == 0 || strcmp("Y", str) == 0 ) {
+		download_mode = 1;
+		set_dload_mode(download_mode);
+		g_force_ramdump = 1;
+	} else
+		download_mode = 0;
+
+	printk("download mode = %d\n",download_mode);
+	return 0;
+}
+
+__setup("UART=", set_download_mode_by_uart);
+#else
+static int download_mode = 1;
+#endif
 
 /* interface for exporting attributes */
 struct reset_attribute {
@@ -172,6 +207,13 @@ int scm_set_dload_mode(int arg1, int arg2)
 void set_dload_mode(int on)
 {
 	int ret;
+
+#ifdef FORCE_RAMDUMP_FEATURE
+// turn on to always force ramdump
+//	if(g_force_ramdump && dload_mode_enabled) {
+//		return ;
+//	}
+#endif
 
 	if (dload_mode_addr) {
 		__raw_writel(on ? 0xE47B337D : 0, dload_mode_addr);
@@ -565,7 +607,13 @@ static void msm_restart_prepare(const char *cmd)
 			if (!ret)
 				__raw_writel(0x6f656d00 | (code & 0xff),
 					     restart_reason);
-		} 
+		// +++ ASUS_BSP : add for lock device
+		} else if (!strncmp(cmd, "asuslock", 8)) {
+				qpnp_pon_set_restart_reason(
+				PON_RESTART_REASON_LOCK_DEVICE);
+			__raw_writel(0x6f656da8, restart_reason);
+		// --- ASUS_BSP : add for lock device
+		}
 	#ifndef ASUS_USER_BUILD
 		// CVE-2017-13174
 		else if (!strncmp(cmd, "edl", 3)) {
@@ -700,6 +748,13 @@ static int msm_restart_probe(struct platform_device *pdev)
 
 	pm_power_off = do_msm_poweroff;
 	arm_pm_restart = do_msm_restart;
+
+#ifdef FORCE_RAMDUMP_FEATURE
+	if(g_force_ramdump) {
+		download_mode = 1;
+		dload_type = SCM_DLOAD_FULLDUMP;
+	}
+#endif
 
 	if (scm_is_call_available(SCM_SVC_PWR, SCM_IO_DISABLE_PMIC_ARBITER) > 0)
 		scm_pmic_arbiter_disable_supported = true;

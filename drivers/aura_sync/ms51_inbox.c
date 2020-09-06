@@ -2663,7 +2663,10 @@ static int ms51_remove(struct i2c_client *client)
 #if FAN_ADD
 	int i = 0;
 	struct device *dev = &client->dev;
-
+	if(g_Charger_mode) {
+		printk("[AURA_MS51_INBOX] In charger mode, stop ms51_remove\n");
+		return 0;
+	}
 	//remove this for inbox have been removed already so that i2c cmd woulf fail.
 	/*if (get_fan_vdd(client)== 1) {
 		
@@ -2723,7 +2726,10 @@ static int ms51_remove(struct i2c_client *client)
 int ms51_inbox_suspend(struct device *dev)
 {
 	int err = 0;
-
+	if(g_Charger_mode) {
+		printk("[AURA_MS51_INBOX] In charger mode, stop ms51_suspend\n");
+		return 0;
+	}
 	printk("[AURA_MS51_INBOX] ms51_inbox_suspend : current_mode : 0x%x, dongle_switch_mode : %d\n", g_pdata->current_mode, dongle_switch_mode);
 
 	if(!g_pdata->current_mode && !dongle_switch_mode){
@@ -2740,7 +2746,10 @@ int ms51_inbox_suspend(struct device *dev)
 int ms51_inbox_resume(struct device *dev)
 {
 	int err = 0;
-
+	if(g_Charger_mode) {
+		printk("[AURA_MS51_INBOX] In charger mode, stop ms51_resume\n");
+		return 0;
+	}
 	printk("[AURA_MS51_INBOX] ms51_inbox_resume : current_mode : 0x%x, dongle_switch_mode : %d\n", g_pdata->current_mode, dongle_switch_mode);
 
 	if(!g_pdata->current_mode && !dongle_switch_mode){

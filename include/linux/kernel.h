@@ -151,6 +151,8 @@ extern enum DEVICE_NFCID g_ASUS_nfcID;
 extern int permissive_enable;
 // ASUS_BSP --- get permissive status
 
+#define FORCE_RAMDUMP_FEATURE 1
+
 #define USHRT_MAX	((u16)(~0U))
 #define SHRT_MAX	((s16)(USHRT_MAX>>1))
 #define SHRT_MIN	((s16)(-SHRT_MAX - 1))

@@ -1162,7 +1162,10 @@ static int ene_8k41_remove(struct i2c_client *client)
 {
 	int err = 0;
 	struct ene_8k41_platform_data *platform_data = i2c_get_clientdata(client);
-
+	if(g_Charger_mode) {
+		printk("[AURA_DT] In charger mode, stop ene_8k41_remove\n");
+		return 0;
+	}
 // unregister
 	printk("[AURA_DT] sysfs_remove_group\n");
 	sysfs_remove_group(&platform_data->led.dev->kobj, &pwm_attr_group);
@@ -1184,7 +1187,10 @@ static int ene_8k41_remove(struct i2c_client *client)
 int ene_8k41_suspend(struct device *dev)
 {
 	int err = 0;
-
+	if(g_Charger_mode) {
+		printk("[AURA_DT] In charger mode, stop ene_8k41_suspend\n");
+		return 0;
+	}
 	printk("[AURA_DT] ene_8k41_suspend : current_mode : 0x%x\n", g_pdata->current_mode);
 	g_pdata->suspend_state = true;
 
@@ -1194,6 +1200,10 @@ int ene_8k41_suspend(struct device *dev)
 int ene_8k41_resume(struct device *dev)
 {
 	int err = 0;
+	if(g_Charger_mode) {
+		printk("[AURA_DT] In charger mode, stop ene_8k41_resume\n");
+		return 0;
+	}
 	g_pdata->suspend_state = false;
 
 	return err;

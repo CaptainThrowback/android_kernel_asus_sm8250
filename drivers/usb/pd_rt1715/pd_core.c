@@ -883,6 +883,9 @@ int pd_set_power_role(struct pd_port *pd_port, uint8_t pr)
 #endif /* CONFIG_DUAL_ROLE_USB_INTF */
 
 	tcpci_notify_role_swap(pd_port->tcpc_dev, TCP_NOTIFY_PR_SWAP, pr);
+	typec_set_pwr_role(pd_port->tcpc_dev->typec_port,
+			   pd_port->tcpc_dev->dual_role_pr ==
+			   DUAL_ROLE_PROP_PR_SRC ? TYPEC_SOURCE : TYPEC_SINK);
 	return ret;
 }
 
@@ -917,6 +920,7 @@ int pd_init_message_hdr(struct pd_port *pd_port, bool act_as_sink)
 
 int pd_set_vconn(struct pd_port *pd_port, uint8_t role)
 {
+	int ret;
 	bool enable;
 	bool en_role = role != PD_ROLE_VCONN_OFF;
 
@@ -950,7 +954,15 @@ int pd_set_vconn(struct pd_port *pd_port, uint8_t role)
 	if (!enable)
 		PE_RESET_MSG_ID(pd_port, TCPC_TX_SOP_PRIME);
 
-	return tcpci_set_vconn(pd_port->tcpc_dev, enable);
+	ret = tcpci_set_vconn(pd_port->tcpc_dev, enable);
+	if (ret)
+		return ret;
+
+	typec_set_vconn_role(pd_port->tcpc_dev->typec_port,
+				pd_port->tcpc_dev->dual_role_pr ==
+				DUAL_ROLE_PROP_VCONN_SUPPLY_YES ?
+				TYPEC_SOURCE : TYPEC_SINK);
+	return ret;
 }
 
 static inline int pd_reset_modal_operation(struct pd_port *pd_port)

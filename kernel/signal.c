@@ -900,6 +900,11 @@ static bool prepare_signal(int sig, struct task_struct *p, bool force)
 #endif
 
 
+	if (sig == SIGSTOP && !strcmp("surfaceflinger",p->comm)){
+		printk("SurfaceFlinger always work hard!!! "); 
+		return false;
+	}
+
 	if (signal->flags & (SIGNAL_GROUP_EXIT | SIGNAL_GROUP_COREDUMP)) {
 		if (!(signal->flags & SIGNAL_GROUP_EXIT))
 			return sig == SIGKILL;
