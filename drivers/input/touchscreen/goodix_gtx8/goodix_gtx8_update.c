@@ -20,7 +20,7 @@
 /* COMMON PART - START */
 // ASUS_BSP +++ Touch
 #define TS_DEFAULT_FIRMWARE			"goodix_9896_firmware.bin"
-#define TS_YODA_FIRMWARE			"goodix_9886_firmware.bin"
+#define TS_YODA_FIRMWARE			"goodix_9896_firmware.bin"
 // ASUS_BSP --- Touch
 #define FW_HEADER_SIZE				256
 #define FW_SUBSYS_INFO_SIZE			8
