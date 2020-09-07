@@ -205,10 +205,7 @@ __setup("androidboot.selinux=", get_permissive_status);
 bool g_Recovery_mode = false;
 static int set_recovery_mode(char *str)
 {
-    if ( strcmp("1", str) == 0 )
-        g_Recovery_mode = true;
-    else
-        g_Recovery_mode = false;
+    g_Recovery_mode = false;
 
     printk("g_Recovery_mode = %d\n", g_Recovery_mode);
     return 0;
@@ -649,10 +646,7 @@ EXPORT_SYMBOL(g_Charger_mode);
 bool g_Recovery_mode = false;
 static int set_recovery_mode(char *str)
 {
-    if ( strcmp("1", str) == 0 )
-        g_Recovery_mode = true;
-    else
-        g_Recovery_mode = false;
+    g_Recovery_mode = false;
 
     printk("g_Recovery_mode = %d\n", g_Recovery_mode);
     return 0;
