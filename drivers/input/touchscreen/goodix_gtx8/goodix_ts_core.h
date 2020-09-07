@@ -90,8 +90,8 @@
 #define GOODIX_TEST_CFG_NAME		"goodix_9896_config_test.cfg"
 #define GOODIX_GLOVE_CFG_NAME		"goodix_9896_config_glove.cfg"
 
-#define GOODIX_YODA_CFG_NAME		"goodix_9886_config.cfg"
-#define GOODIX_TEST_YODA_CFG_NAME	"goodix_9886_config_test.cfg"
+#define GOODIX_YODA_CFG_NAME		"goodix_9896_config.cfg"
+#define GOODIX_TEST_YODA_CFG_NAME	"goodix_9896_config_test.cfg"
 // ASUS_BSP --- Touch
 #define IC_TYPE_NONE			0
 #define IC_TYPE_NORMANDY		1

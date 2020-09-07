@@ -5,7 +5,7 @@
 
 // ASUS_BSP +++ Touch
 #define TS_DEFAULT_CFG_BIN "goodix_9896_cfg_group.bin"
-#define TS_YODA_CFG_BIN "goodix_9886_cfg_group.bin"
+#define TS_YODA_CFG_BIN "goodix_9896_cfg_group.bin"
 
 #define TS_9886_GESTURE_ADDR 0x4100
 #define TS_9896_GESTURE_ADDR 0x4180
