@@ -37,3 +37,9 @@ echo "Build The Good Stuff"
 echo 
 
 make CC=clang AR=llvm-ar NM=llvm-nm OBJCOPY=llvm-objcopy OBJDUMP=llvm-objdump STRIP=llvm-strip O=out -j4
+
+echo
+echo "Compile DTBs"
+echo
+
+find out/arch/arm64/boot/dts -name '*.dtb' -exec cat {} + > out/arch/arm64/boot/dtb.img
