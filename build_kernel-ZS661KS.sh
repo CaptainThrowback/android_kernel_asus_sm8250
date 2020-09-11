@@ -3,7 +3,7 @@
 Kernel_Root=~/android/build/kernel/asus/sm8250
 Android_Build=~/android/build/omni/android-10
 Clang_Google=prebuilts/clang/host
-Prebuilt_Clang=clang-r399163
+Prebuilt_Clang=clang-r383902c
 GCC_Google_Arm64=prebuilts/gcc/linux-x86/aarch64
 
 echo
