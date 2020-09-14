@@ -43,3 +43,8 @@ echo "Compile DTBs"
 echo
 
 find out/arch/arm64/boot/dts -name '*.dtb' -exec cat {} + > out/arch/arm64/boot/dtb.img
+
+echo
+echo "Build Complete!"
+echo
+
