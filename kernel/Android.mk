@@ -1,1 +1,0 @@
-../device/qcom/common/stop_scan.mk

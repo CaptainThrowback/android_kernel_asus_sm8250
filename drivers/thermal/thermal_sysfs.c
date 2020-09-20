@@ -88,7 +88,7 @@ int get_virtual_temp(void){
 	cur_use_pa_status = G_use_pa_flag;
 
 	if(G_ambient_therm_temp > (G_pa_therm2_temp + 2000)){
-		result = G_pa_therm2_temp - 2000;
+		result = G_pa_therm2_temp - 3000;
 		G_use_pa_flag = false;
 	} else {
 		result = G_ambient_therm_temp;

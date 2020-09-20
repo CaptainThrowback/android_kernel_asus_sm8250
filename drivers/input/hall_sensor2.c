@@ -83,7 +83,8 @@ static struct workqueue_struct 	*hall_sensor_wq;
 static struct i2c_client* report_client;
 struct device *dev = NULL;
 static int g_state=-1; //0-none;1-open;2-close
-static int g_threshold1X=-600;
+static int g_threshold1X=-550;
+static int g_threshold2X=550;
 static int g_threshold1Y=400;
 static int is_suspend=0;
 
@@ -163,6 +164,7 @@ static irqreturn_t hall_sensor_reenable_irq(int irq, void *dev_id)
 	unsigned char data[8]={0};
 	int err = 0;
 	int SWX1=-1;
+	int SWX2=-1;
 	int SWY1=-1;
 
 	if(is_suspend == 1){
@@ -183,12 +185,13 @@ static irqreturn_t hall_sensor_reenable_irq(int irq, void *dev_id)
 	}
 
 	SWX1 = (data[1]&0x2)>>1;  //ST-D1
+	SWX2 = (data[1]&0x4)>>2;  //ST-D2
 	SWY1 = (data[1]&0x8)>>3;  //ST-D3
 	err = cancel_delayed_work(&hall_sensor_dev->hall_sensor_work);
 	if(err == 1 ){
-		log("cancel pending work  SWX1=%d  SWY1=%d\n",SWX1,SWY1);
+		log("cancel pending work  SWX1=%d  SWX2=%d SWY1=%d\n",SWX1,SWX2,SWY1);
 	}else{
-		log("no pending work  SWX1=%d  SWY1=%d\n",SWX1,SWY1);
+		log("no pending work  SWX1=%d  SWX2=%d SWY1=%d\n",SWX1,SWX2,SWY1);
 	}
 	
 
@@ -207,6 +210,7 @@ static void debounce_hall_sensor_report_function(struct work_struct *dat)
 	int X_value=0;
 	int Y_value=0;
 	int SWX1=-1;
+	int SWX2=-1;
 	int SWY1=-1;
 
 	__pm_wakeup_event(&hall_sensor_dev->wake_src, REPORT_WAKE_LOCK_TIMEOUT);
@@ -218,6 +222,7 @@ static void debounce_hall_sensor_report_function(struct work_struct *dat)
 	mutex_unlock(&hall_sensor_dev->hall2_mutex);
 
 	SWX1 = (data[1]&0x2)>>1;  //ST-D1
+	SWX2 = (data[1]&0x4)>>2;  //ST-D1
 	SWY1 = (data[1]&0x8)>>3;  //ST-D3
 	if(data[6] >= 128)
 		X_value = ~((data[6]^255)* 256 + (data[7]^255));
@@ -228,21 +233,27 @@ static void debounce_hall_sensor_report_function(struct work_struct *dat)
 		Y_value = ~((data[4]^255)* 256 + (data[5]^255));
 	else
 		Y_value = data[4]*256 + data[5];
-	log("interrupt  X_value=%d SWX1=%d Y_value=%d SWY1=%d\n",X_value,SWX1,Y_value,SWY1);
 
-	if( (SWX1==0) && (SWY1==0))
+	if(X_value > g_threshold2X)
+		log("new latch g_threshold2X=%d\n",g_threshold2X);
+	else if(X_value < g_threshold1X)
+			log("old latch g_threshold1X=%d\n",g_threshold1X);
+
+	log("interrupt  X_value=%d SWX1=%d SWX2=%d Y_value=%d SWY1=%d\n",X_value,SWX1,SWX2,Y_value,SWY1);
+
+	if( ((SWX1==0) && (SWY1==0)) || ((SWX2==1) && (SWY1==0)))
 	{
-		envp[0] = "STATUS=CLOSE";
-		envp[1] = NULL;
-		kobject_uevent_env(&report_client->dev.kobj, KOBJ_CHANGE, envp);
-		g_state=2;
-	}else if((SWX1==0) && (SWY1==1))
+			envp[0] = "STATUS=CLOSE";
+			envp[1] = NULL;
+			kobject_uevent_env(&report_client->dev.kobj, KOBJ_CHANGE, envp);
+			g_state=2;
+	}else if( ((SWX1==0) && (SWY1==1)) || ((SWX2==0) && (SWY1==0)))
 	{
 		envp[0] = "STATUS=OPEN";
 		envp[1] = NULL;
 		kobject_uevent_env(&report_client->dev.kobj, KOBJ_CHANGE, envp);
 		g_state=1;
-	}else if(SWX1==1)
+	}else if((SWX1==1) || (SWY1==1))
 	{
 		envp[0] = "STATUS=NONE";
 		envp[1] = NULL;
@@ -313,16 +324,38 @@ static ssize_t store_1X_threshold(struct device *dev, struct device_attribute *a
 	mutex_lock(&hall_sensor_dev->hall2_mutex);
 	ret=hall2_write_threshold(client,0x22,request+32,request-32);
 	mutex_unlock(&hall_sensor_dev->hall2_mutex);
+
 	if(ret<0){
-		log("[hall_sensor2]%s: hall2_write_threshold write threshold %d fail\n",__func__,request);
+		log("[hall_sensor2]%s: hall2_write_threshold write X1threshold %d fail\n",__func__,request);
 		return count;
 	}
 
 	g_threshold1X=request;
-	log("[hall_sensor2]%s: threshold=%d\n",__func__,request);
+	log("[hall_sensor2]%s: X1threshold=%d\n",__func__,request);
 	return count;
 }
 
+static ssize_t store_2X_threshold(struct device *dev, struct device_attribute *attr, const char *buf, size_t count)
+{
+	int ret = 0;
+	int request=0;
+	struct i2c_client *client = to_i2c_client(dev);
+
+	sscanf(buf, "%d", &request);
+
+	mutex_lock(&hall_sensor_dev->hall2_mutex);
+	ret=hall2_write_threshold(client,0x23,request+32,request-32);
+	mutex_unlock(&hall_sensor_dev->hall2_mutex);
+
+	if(ret<0){
+		log("[hall_sensor2]%s: hall2_write_threshold write X2threshold %d fail\n",__func__,request);
+		return count;
+	}
+
+	g_threshold2X=request;
+	log("[hall_sensor2]%s: X2threshold=%d\n",__func__,request);
+	return count;
+}
 
 static ssize_t show_1X_threshold(struct device *dev, struct device_attribute *attr, char *buf)
 {
@@ -331,6 +364,15 @@ static ssize_t show_1X_threshold(struct device *dev, struct device_attribute *at
 	//int err = 0;
 	log("[hall_sensor2]%s: g_threshold1X=%d\n",__func__,g_threshold1X);
 	return snprintf(buf, PAGE_SIZE,"g_threshold1X=%d\n", g_threshold1X);
+}
+
+static ssize_t show_2X_threshold(struct device *dev, struct device_attribute *attr, char *buf)
+{
+	//struct i2c_client *client = to_i2c_client(dev);
+	//unsigned char data[8]={0};
+	//int err = 0;
+	log("[hall_sensor2]%s: g_threshold2X=%d\n",__func__,g_threshold2X);
+	return snprintf(buf, PAGE_SIZE,"g_threshold2X=%d\n", g_threshold2X);
 }
 
 static ssize_t store_1Y_threshold(struct device *dev, struct device_attribute *attr, const char *buf, size_t count)
@@ -771,6 +813,7 @@ static DEVICE_ATTR(X, 0664,show_x, NULL);
 static DEVICE_ATTR(Y, 0664,show_y, NULL);
 static DEVICE_ATTR(Z, 0664,show_z, NULL);
 static DEVICE_ATTR(X1_threshold, 0664,show_1X_threshold, store_1X_threshold);
+static DEVICE_ATTR(X2_threshold, 0664,show_2X_threshold, store_2X_threshold);
 static DEVICE_ATTR(Y1_threshold, 0664,show_1Y_threshold, store_1Y_threshold);
 static DEVICE_ATTR(trigger_update, 0664,NULL, store_trigger_update);
 static DEVICE_ATTR(status, 0664, show_hall_sensor_status, store_hall_sensor_status);
@@ -784,6 +827,7 @@ static struct attribute *hall_sensor_attrs[] = {
 	&dev_attr_Y.attr,
 	&dev_attr_Z.attr,
 	&dev_attr_X1_threshold.attr,
+	&dev_attr_X2_threshold.attr,
 	&dev_attr_Y1_threshold.attr,
 	&dev_attr_trigger_update.attr,
 	&dev_attr_status.attr,
@@ -932,8 +976,9 @@ log("Probe +++\n");
 
 	mutex_lock(&hall_sensor_dev->hall2_mutex);
 	hall2_write_threshold(client,0x22,g_threshold1X+32,g_threshold1X-32); //0x22, write X1 threshold
+	hall2_write_threshold(client,0x23,g_threshold2X+32,g_threshold2X-32); //0x22, write X2 threshold
 	hall2_write_threshold(client,0x24,g_threshold1Y+32,g_threshold1Y-32); //0x24, write Y1 threshold
-	ret = hall2_write_interrupt(client, 0x20, 0xa); //set SWX1EN(D1),SWY1EN(D3)
+	ret = hall2_write_interrupt(client, 0x20, 0xe); //set SWX1EN(D1),SWX2EN(D2),SWY1EN(D3)
 	if(ret < 0)
 	{
 		err("[hall_sensor2]write interrupt [0x6] [0xa]  send error\n");

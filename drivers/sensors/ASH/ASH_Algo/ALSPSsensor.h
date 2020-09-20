@@ -79,7 +79,7 @@
 #define PROXIMITY_THDL_ER2_DEFAULT    (547)
 #define PROXIMITY_THDH_ER2_DEFAULT    (788)
 #define PROXIMITY_POCKET_ER2_DEFAULT       (4093)
-#define PROXIMITY_POCKET_DEFAULT       (4093)
+#define PROXIMITY_POCKET_DEFAULT       (4091)
 #define LIGHT_ER_CALIBRATION_DEFAULT (4563)
 #define LIGHT_ER2_CALIBRATION_DEFAULT (3372)
 /* ASUS BSP Clay: shift lux to mitigate psensor noise when psensor on and lux < offset +++ */

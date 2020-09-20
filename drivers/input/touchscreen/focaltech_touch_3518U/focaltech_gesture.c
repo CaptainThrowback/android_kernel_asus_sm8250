@@ -108,8 +108,8 @@ extern u8 FTS_gesture_register_D6;
 extern u8 FTS_gesture_register_D7;
 extern u8 FTS_gesture_register_D8;
 
-extern bool proximityStatus(void);
-//extern bool proximitySecStatus(void);
+//extern bool proximityStatus(void);
+extern bool proximitySecStatus(void);
 /*****************************************************************************
 * Static function prototypes
 *****************************************************************************/
@@ -327,17 +327,17 @@ static int fts_create_gesture_sysfs(struct device *dev)
 static void fts_gesture_report(struct input_dev *input_dev, int gesture_id)
 {
     int gesture = -1;
-    bool Ps_status;
-    //bool Ps2_status;
+    //bool Ps_status;
+    bool Ps2_status;
     //int r = 0;
 
     FTS_DEBUG("gesture_id:0x%x", gesture_id);
 
-    Ps_status = proximityStatus();
-    //Ps2_status = proximitySecStatus();
-    FTS_DEBUG("Psensor status=%d", Ps_status);
+    //Ps_status = proximityStatus();
+    Ps2_status = proximitySecStatus();
+    FTS_DEBUG("Psensor2 status=%d", Ps2_status);
 
-    if (!Ps_status) {
+    if (!Ps2_status) {
     switch (gesture_id) {
     case GESTURE_W:
 	gesture = KEY_GESTURE_W;

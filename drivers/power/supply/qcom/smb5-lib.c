@@ -105,7 +105,6 @@ int g_usb_otg = 0;
 unsigned long enter_monitor_work_count = 0;
 bool enter_jeta_cc1_flag = false;
 bool enter_jeta_cc2_flag = false;
-extern int asus_display_status;
 
 extern bool smartchg_slow_flag;
 
@@ -251,6 +250,20 @@ void asus_set_smb1390_ILIM(int ILIM_current_value)
 	{
 		pr_info("fail to set smb1390 ILIM");
 	}
+}
+
+extern bool asus_display_in_normal_on(void);
+extern bool asus_display_in_aod(void);
+bool asus_get_display_status(void)
+{
+	bool display_status = false;
+
+	if (asus_display_in_normal_on() && !asus_display_in_aod())
+	{
+		display_status = true;
+	}
+
+	return display_status;
 }
 
 //todo
@@ -6194,7 +6207,7 @@ static int jeita_status_regs_write(u8 chg_en, int FV_uV, int FCC_uA)
 			{
 				if(asus_get_prop_total_fcc() >2400)
 				{
-					if(asus_display_status==0)
+					if(!asus_get_display_status())
 					{
 						asus_disable_smb1390(false);
 					}
@@ -6538,7 +6551,7 @@ void jeita_rule(void)
 		{
 			if(asus_get_prop_total_fcc() >2400)
 			{
-				if(asus_display_status==0)
+				if(!asus_get_display_status())
 				{
 					asus_disable_smb1390(false);
 				}
@@ -6721,7 +6734,7 @@ void asus_monitor_thermal_management(void) //ASUS INOV flow
 		return;
 	}
 
-	if(asus_display_status == 1) //panel on
+	if(asus_get_display_status()) //panel on
 	{
 		if (smbchg_dev->iio.asus_wp_temp_vadc_chan)
 		{
@@ -10648,7 +10661,7 @@ static void asus_panel_check_work(struct work_struct *work)
 
 	int rc;
 
-	if(asus_display_status==1&& !g_ftm_mode)//panel on
+	if(asus_get_display_status() && !g_ftm_mode)//panel on
 	{
 		CHG_DBG_E("screen on ,set PM8150B usb icl=2A,disable 1390\n");
 		rc = asus_exclusive_vote(chg->usb_icl_votable, ASUS_ICL_VOTER, true, 2000000);

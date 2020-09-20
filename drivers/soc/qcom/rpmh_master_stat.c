@@ -121,31 +121,54 @@ static ssize_t msm_rpmh_master_stats_print_data(char *prvbuf, ssize_t length,
 			accumulated_duration);
 }
 
-static void asus_resume_msm_rpmh_master_stats_print_data(void)
+static void asus_msm_rpmh_master_stats_print_data(struct msm_rpmh_master_stats *record,
+				const char *name)
 {
-	int i=0;
+	uint64_t accumulated_duration = record->accumulated_duration;
+	/*
+	 * If a master is in sleep when reading the sleep stats from SMEM
+	 * adjust the accumulated sleep duration to show actual sleep time.
+	 * This ensures that the displayed stats are real when used for
+	 * the purpose of computing battery utilization.
+	 */
+	if (record->last_entered > record->last_exited)
+		accumulated_duration +=
+				(arch_counter_get_cntvct()
+				- record->last_entered);
+
+	printk("%s Version:0x%x  "
+			"Sleep Count:0x%x  "
+			"Sleep Last Entered At:0x%llx  "
+			"Sleep Last Exited At:0x%llx  "
+			"Sleep Accumulated Duration:0x%llx\n",
+			name, record->version_id, record->counts,
+			record->last_entered, record->last_exited,
+			accumulated_duration);
+}
+
+static void asus_msm_rpmh_master_stats_show(void)
+{
+	int i = 0;
 	size_t size = 0;
-	struct msm_rpmh_master_stats *record[8];
-	
+	struct msm_rpmh_master_stats *record = NULL;
+
 	mutex_lock(&rpmh_stats_mutex);
 
+	/* First Read APSS master stats */
+
+	asus_msm_rpmh_master_stats_print_data(&apss_master_stats, "APSS");
+
+	/* Read SMEM data written by other masters */
+
 	for (i = 0; i < ARRAY_SIZE(rpmh_masters); i++) {
-		record[i] = (struct msm_rpmh_master_stats *) qcom_smem_get(
+		record = (struct msm_rpmh_master_stats *) qcom_smem_get(
 					rpmh_masters[i].pid,
 					rpmh_masters[i].smem_id, &size);
+		if (!IS_ERR_OR_NULL(record) )
+			asus_msm_rpmh_master_stats_print_data(record,rpmh_masters[i].master_name);
 	}
-	printk("APPS: 0x%x ,%s: 0x%x , %s: 0x%x ,%s: 0x%x ,%s: 0x%x ,%s: 0x%x ,%s: 0x%x ,%s: 0x%x ,%s: 0x%x \n",apss_master_stats.counts, 
-		rpmh_masters[0].master_name,!IS_ERR_OR_NULL(record[0])?record[0]->counts:(-1),
-		rpmh_masters[1].master_name,!IS_ERR_OR_NULL(record[1])?record[1]->counts:(-1),
-		rpmh_masters[2].master_name,!IS_ERR_OR_NULL(record[2])?record[2]->counts:(-1),
-		rpmh_masters[3].master_name,!IS_ERR_OR_NULL(record[3])?record[3]->counts:(-1),
-		rpmh_masters[4].master_name,!IS_ERR_OR_NULL(record[4])?record[4]->counts:(-1),
-		rpmh_masters[5].master_name,!IS_ERR_OR_NULL(record[5])?record[5]->counts:(-1),
-		rpmh_masters[6].master_name,!IS_ERR_OR_NULL(record[6])?record[6]->counts:(-1),
-		rpmh_masters[7].master_name,!IS_ERR_OR_NULL(record[7])?record[7]->counts:(-1));
 
 	mutex_unlock(&rpmh_stats_mutex);
-
 }
 
 static ssize_t msm_rpmh_master_stats_show(struct kobject *kobj,
@@ -292,9 +315,13 @@ static const struct of_device_id rpmh_master_table[] = {
 	{},
 };
 
+extern bool need_dump_rpmh_master_stat;
 static int asus_rpmh_master_stats_resume (struct device *dev)
 {
-	asus_resume_msm_rpmh_master_stats_print_data();
+	if(need_dump_rpmh_master_stat)
+	{
+		asus_msm_rpmh_master_stats_show();
+	}
 	return 0;
 }
 

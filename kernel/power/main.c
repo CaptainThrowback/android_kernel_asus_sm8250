@@ -705,7 +705,6 @@ static ssize_t wake_lock_show(struct kobject *kobj,
 	return pm_show_wakelocks(buf, true);
 }
 
-int asus_display_status=0;
 static ssize_t wake_lock_store(struct kobject *kobj,
 			       struct kobj_attribute *attr,
 			       const char *buf, size_t n)
@@ -715,7 +714,6 @@ static ssize_t wake_lock_store(struct kobject *kobj,
 	if(0 == ret) {
 		printk("[PM]request_suspend_state: (3->0)\n");
 		ASUSEvtlog("[PM]request_suspend_state: (3->0)\n");
-		asus_display_status=1;
 	}
 	return error ? error : n;
 }
@@ -741,7 +739,6 @@ static ssize_t wake_unlock_store(struct kobject *kobj,
 
 		printk("[PM]request_suspend_state: (0->3)\n");
 		ASUSEvtlog("[PM]request_suspend_state: (0->3)\n");
-		asus_display_status=0;
 	}
 	return error ? error : n;
 }
