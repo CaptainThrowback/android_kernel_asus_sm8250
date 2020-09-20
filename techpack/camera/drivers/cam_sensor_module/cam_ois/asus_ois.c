@@ -75,9 +75,7 @@ typedef enum{
 	BAD_IO,
 	BAD_FW,
 }fw_trigger_result_t;
-#ifdef ZS670KS
-extern uint8_t eeprom_camera_specs; //ASUS_BSP Byron take this tag for distinguish device level
-#endif
+
 static struct cam_ois_ctrl_t * ois_ctrl[OIS_CLIENT_MAX] = {0};
 
 uint8_t g_ois_status[OIS_CLIENT_MAX] = {0};
@@ -2002,13 +2000,7 @@ void ois_probe_check(uint16_t sensor_id)
 		pr_info("no ois with sensor id(0x%x)\n",sensor_id);
 		return;
 	}
-	#ifdef ZS670KS
-	pr_info("eeprom_camera_specs = 0x%x\n",eeprom_camera_specs);
-	if(eeprom_camera_specs != device_high_level_check) {
-		pr_info("with low level device, no ois to probe\n");
-		return;
-	}
-	#endif
+
 	if(oisCtrl == NULL)
 	{
 		#if defined(ASUS_DXO) ||defined(ZS670KS)

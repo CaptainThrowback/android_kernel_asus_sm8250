@@ -131,7 +131,6 @@ extern bool g_is_country_code_RU;
 #ifdef ZS670KS
 extern bool g_is_country_code_EU;
 extern bool g_is_country_code_RU;
-extern uint8_t eeprom_camera_specs;
 #define CAMEEPROM_HIGH_LEVEL 107
 #define CAMEEPROM_LOW_LEVEL 106
 #endif //ASUS_ZS670KS_PROJECT
@@ -188,18 +187,10 @@ getname_flags(const char __user *filename, int flags, int *empty)
 			//printk("%s: load build.prop from build_eu.prop",__func__);
 			strncpy(kname, "/vendor/build_eu.prop", EMBEDDED_NAME_MAX);
 			len = 21;
-		}else if(g_is_country_code_RU){
-			//printk("%s: load build.prop from build_ru.prop",__func__);
-			if(eeprom_camera_specs == CAMEEPROM_LOW_LEVEL) {
-			    strncpy(kname, "/vendor/build_ru_0.prop", EMBEDDED_NAME_MAX);
-			    len = 23;
-			}else if(eeprom_camera_specs == CAMEEPROM_HIGH_LEVEL) {
-			    strncpy(kname, "/vendor/build_ru_1.prop", EMBEDDED_NAME_MAX);
-			    len = 23;
-			}else {
+		}else {
 				strncpy(kname, "/vendor/build_ru_0.prop", EMBEDDED_NAME_MAX);
 			    len = 23;
-			}
+
 		}
     }else if (!strncmp(kname, "/odm/etc/build.prop", 19)) {
 		if (g_is_country_code_EU){
@@ -207,17 +198,8 @@ getname_flags(const char __user *filename, int flags, int *empty)
 			strncpy(kname, "/odm/etc/build_eu.prop", EMBEDDED_NAME_MAX);
 			len = 22;
 		}else if(g_is_country_code_RU){
-			//printk("%s: load build.prop from build_ru.prop",__func__);
-			if(eeprom_camera_specs == CAMEEPROM_LOW_LEVEL) {
-			    strncpy(kname, "/odm/etc/build_ru_0.prop", EMBEDDED_NAME_MAX);
-			    len = 24;
-			}else if(eeprom_camera_specs == CAMEEPROM_HIGH_LEVEL) {
-			    strncpy(kname, "/odm/etc/build_ru_1.prop", EMBEDDED_NAME_MAX);
-			    len = 24;
-			}else {
-				strncpy(kname, "/odm/etc/build_ru_0.prop", EMBEDDED_NAME_MAX);
-			    len = 24;
-			}
+			strncpy(kname, "/odm/etc/build_ru_0.prop", EMBEDDED_NAME_MAX);
+			   len = 24;
 		}
     }
 #endif //ASUS_ZS670KS_PROJECT

@@ -47,9 +47,6 @@ static enum camera_sensor_i2c_type g_data_type = CAMERA_SENSOR_I2C_TYPE_WORD; //
 static enum camera_sensor_i2c_type g_addr_type = CAMERA_SENSOR_I2C_TYPE_BYTE;
 
 static uint8_t g_operation = 0;//read
-#if defined(ASUS_DXO) ||defined(ZS670KS)
-extern uint8_t  eeprom_camera_specs; //ASUS_BSP jason add support ZF7 Entry ov08a
-#endif 
 void actuator_lock(void)
 {
 	if(actuator_ctrl == NULL)
@@ -258,13 +255,6 @@ static ssize_t actuator_i2c_debug_write(struct file *filp, const char __user *bu
 	}
 
 	n = sscanf(messages,"%x %x %x %x",&val[0],&val[1],&val[2],&val[3]);
-//ASUS_BSP +++ jason add support ZF7 Entry ov08a
-#if defined(ASUS_DXO) ||defined(ZS670KS)
-	if(eeprom_camera_specs==0x71)
-		vcm_dac_reg_addr[3]=0x03;
-#endif	
-//ASUS_BSP ---jason add support ZF7 Entry ov08a
-//	mutex_lock(&actuator_ctrl->actuator_mutex); //ASUS_BSP Jason fix multi actuator write
 
 	if(n == 1)
 	{
@@ -487,19 +477,6 @@ static int actuator_read_vcm_dac_open(struct inode *inode, struct  file *file)
 	temp[0]=vcm_file_name[strlen(vcm_file_name)-1];
 	temp[1]='\0';
 	ret=kstrtol(temp, 10, &vcm_open_number) ;
-
-//ASUS_BSP +++ jason add support ZF7 Entry ov08a
-#if defined(ASUS_DXO) ||defined(ZS670KS)
-      pr_info(" actuator_read_vcm_dac_open descriptor for file %s strlen=%d result=%d test=%d eeprom_camera_specs=%x\n",temp,strlen(temp),vcm_open_number,ret,eeprom_camera_specs);
-	if(eeprom_camera_specs==0x71)
-		vcm_dac_reg_addr[3]=0x03;
-#else
-      pr_info(" actuator_read_vcm_dac_open descriptor for file %s strlen=%d result=%d test=%d \n",temp,strlen(temp),vcm_open_number,ret);
-#endif	
-//ASUS_BSP --- jason add support ZF7 Entry ov08a
-	actuator_ctrl= g_actuator_ctrl[vcm_open_number];
-	g_reg_addr=vcm_dac_reg_addr[vcm_open_number];
-//ASUS_BSP for jason_yeh ---support multi camera vcm
 
 	return single_open(file, actuator_read_vcm_dac_read, NULL);
 }
@@ -837,7 +814,7 @@ void asus_actuator_init(struct cam_actuator_ctrl_t * ctrl)
 		actuator_ctrl= ctrl;
 		g_actuator_ctrl[ctrl->soc_info.index]= ctrl;
 #if defined(ASUS_DXO) ||defined(ZS670KS)		
-		pr_info("%s g_actuator_ctrl=%x index=%d eeprom_camera_specs %x\n",__func__,g_actuator_ctrl[ctrl->soc_info.index],ctrl->soc_info.index,eeprom_camera_specs);
+		pr_info("%s g_actuator_ctrl=%x index=%d\n",__func__,g_actuator_ctrl[ctrl->soc_info.index],ctrl->soc_info.index);
 #else
 		pr_info("%s g_actuator_ctrl=%x index=%d \n",__func__,g_actuator_ctrl[ctrl->soc_info.index],ctrl->soc_info.index);
 #endif
