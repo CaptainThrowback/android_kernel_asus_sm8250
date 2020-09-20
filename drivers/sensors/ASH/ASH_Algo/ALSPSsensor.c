@@ -2207,14 +2207,21 @@ wake_lock(&g_alsps_wake_lock);
 	msleep(PROXIMITY_TURNON_DELAY_TIME);
 
 	adc_value = ALSPS_hw_client->mpsensor_hw->proximity_hw_get_adc();
-	threshold_high = g_ps_data->g_ps_factory_cal_hi;
+	
+	//ASUS BSP Clay +++: use previous autok crosstalk
+	if(g_ps_data->crosstalk_diff > g_ps_data->g_ps_autok_max){
+		threshold_high = g_ps_data->g_ps_factory_cal_hi + g_ps_data->g_ps_autok_max;
+	}else {
+		threshold_high = g_ps_data->g_ps_factory_cal_hi + g_ps_data->crosstalk_diff;
+	}
+	//ASUS BSP Clay ---
 
 	if (adc_value >= threshold_high) {
 		status = true;
 	}else{ 
 		status = false;
 	}
-	log("proximityStatus : %s , (adc, hi_cal)=(%d, %d)\n", 
+	log("proximitySecStatus : %s , (adc, hi_cal+prev_autoK)=(%d, %d)\n", 
 		status?"Close":"Away", adc_value, threshold_high);
 	
 	if(g_ps_data->Device_switch_on == false){
@@ -2241,6 +2248,7 @@ static int proximity_check_minCT(void)
 	int adc_value = 0;
 	int crosstalk_diff;
 	int crosstalk_min = 9999;
+	int crosstalk_limit = 0;
 	int ret;
 	int round;
 	
@@ -2270,17 +2278,28 @@ static int proximity_check_minCT(void)
 		err("proximity_set_threshold ERROR\n");
 		return ret;
 	}
-
+	
 	/*update the diff crosstalk value*/
 	crosstalk_diff = crosstalk_min -g_ps_data->g_ps_calvalue_inf;
+	
 	if(crosstalk_diff>g_ps_data->g_ps_autok_min && crosstalk_diff<g_ps_data->g_ps_autok_max){
 		log("Update the diff for crosstalk : %d\n", crosstalk_diff);
+
+		//ASUS BSP Clay +++: prevent near > (pocket-1000) after autok
+		crosstalk_limit = g_pocket_mode_threshold - 1000 - g_ps_data->g_ps_factory_cal_hi;
+		if(crosstalk_diff > crosstalk_limit){
+			log("crosstalk_diff(%d) > pocket-1000-cal_hi(%d)", crosstalk_diff, crosstalk_limit);
+			crosstalk_diff = crosstalk_limit;
+		}
+		//ASUS BSP Clay ---
+		
 		g_ps_data->crosstalk_diff = crosstalk_diff;
 
 		if(ALSPS_hw_client->mpsensor_hw->proximity_hw_set_autoK == NULL) {
 			err("proximity_hw_set_autoK NOT SUPPORT. \n");
 			return -1;
 		}
+		
 		ALSPS_hw_client->mpsensor_hw->proximity_hw_set_autoK(crosstalk_diff);
 		g_ps_data->g_ps_calvalue_hi += crosstalk_diff;
 		g_ps_data->g_ps_calvalue_lo += crosstalk_diff;
@@ -2300,7 +2319,7 @@ static int proximity_check_minCT(void)
 static void proximity_autok(struct work_struct *work)
 {
 	int adc_value;
-	int crosstalk_diff;
+	int crosstalk_diff, crosstalk_limit = 0;
 
 	/* proximity sensor go to suspend, cancel autok timer */
 	if(g_alsps_power_status == ALSPS_SUSPEND){
@@ -2336,7 +2355,16 @@ static void proximity_autok(struct work_struct *work)
 			g_ps_data->crosstalk_diff = 0;
 			log("Update the diff for crosstalk : %d, hi: %d, low: %d, END\n", 
 				g_ps_data->crosstalk_diff, g_ps_data->g_ps_calvalue_hi, g_ps_data->g_ps_calvalue_lo);
-		}else if((crosstalk_diff>g_ps_data->g_ps_autok_min) && (crosstalk_diff<g_ps_data->g_ps_autok_max)){			
+		}else if((crosstalk_diff>g_ps_data->g_ps_autok_min) && (crosstalk_diff<g_ps_data->g_ps_autok_max)){
+		
+			//ASUS BSP Clay +++: prevent near > (pocket-1000) after autok
+			crosstalk_limit = g_pocket_mode_threshold - 1000 - g_ps_data->g_ps_factory_cal_hi;
+			if(crosstalk_diff > crosstalk_limit){
+				log("crosstalk_diff(%d) > pocket-1000-cal_hi(%d)", crosstalk_diff, crosstalk_limit);
+				crosstalk_diff = crosstalk_limit;
+			}
+			//ASUS BSP Clay ---
+			
 			ALSPS_hw_client->mpsensor_hw->proximity_hw_set_autoK(crosstalk_diff-g_ps_data->crosstalk_diff);
 			g_ps_data->g_ps_calvalue_hi += (crosstalk_diff-g_ps_data->crosstalk_diff);
 			g_ps_data->g_ps_calvalue_lo += (crosstalk_diff-g_ps_data->crosstalk_diff);
