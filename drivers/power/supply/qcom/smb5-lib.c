@@ -10713,9 +10713,9 @@ static void asus_panel_check_work(struct work_struct *work)
 	}
 	else //panel off keep vid result setting
 	{
-		if(G_virtual_therm_temp > 45000)
+		if(G_virtual_therm_temp > 42000)
 		{
-			CHG_DBG_E("virtual > 45C");
+			CHG_DBG_E("virtual > 42C");
 			virtual_over_temp = true;
 			rc = asus_exclusive_vote(chg->usb_icl_votable, ASUS_ICL_VOTER, true, 1000000);
 			if (rc < 0)
@@ -10723,7 +10723,7 @@ static void asus_panel_check_work(struct work_struct *work)
 			asus_disable_smb1390(true);
 			schedule_delayed_work(&chg->asus_panel_check_work, msecs_to_jiffies(60000));
 		}
-		else if( G_virtual_therm_temp < 42000 || virtual_over_temp == false)
+		else if( G_virtual_therm_temp < 40000 || virtual_over_temp == false)
 		{
 			virtual_over_temp = false;
 			if(is_asus_vid == 0 && smbchg_dev->pd_active == POWER_SUPPLY_PD_PPS_ACTIVE)
