@@ -107,6 +107,7 @@ enum print_reason {
 
 //[+++]ASUS : Add asus define
 #define ASUS_ICL_VOTER "ASUS_ICL_VOTER"
+#define ASUS_SLOWCHG_VOTER "ASUS_SLOWCHG_VOTER"
 #define ASUS_INOV_ICL_VOTER "ASUS_INOV_ICL_VOTER"
 #define ASUS_SLOW_FCC_VOTER "ASUS_SLOW_FCC_VOTER"
 #define CHARGER_TAG "[BAT][CHG]"

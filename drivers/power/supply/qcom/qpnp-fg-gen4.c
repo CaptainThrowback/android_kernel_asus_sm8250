@@ -738,7 +738,7 @@ static int fg_get_batt_id_adc(struct fg_gen4_chip *chip, u32 *batt_id_ohms)
 
 	batt_id_mv = div_s64(batt_id_mv, 1000);
 	if (batt_id_mv == 0) {
-		pr_debug("batt_id_mv = 0 from ADC\n");
+		pr_info("batt_id_mv = 0 from ADC\n");
 		return 0;
 	}
 
@@ -751,7 +751,7 @@ static int fg_get_batt_id_adc(struct fg_gen4_chip *chip, u32 *batt_id_ohms)
 	*batt_id_ohms = div64_u64(chip->dt.batt_id_pullup_kohms * 1000 * 1000
 					+ denom / 2, denom);
 
-	pr_debug("batt_id_mv=%d, batt_id_ohms=%d\n", batt_id_mv, *batt_id_ohms);
+	pr_info("batt_id_mv=%d, batt_id_ohms=%d\n", batt_id_mv, *batt_id_ohms);
 
 	return 0;
 }
@@ -7517,6 +7517,10 @@ static void fg_gen4_cleanup(struct fg_gen4_chip *chip)
 }
 
 //ASUS_BSP battery safety upgrade +++
+int get_battery_total_time()
+{
+	return g_cycle_count_data.battery_total_time;
+}
 static int batt_safety_proc_show(struct seq_file *buf, void *data)
 {
 	int rc =0;

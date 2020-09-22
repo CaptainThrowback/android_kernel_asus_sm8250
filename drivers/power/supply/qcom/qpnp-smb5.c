@@ -261,6 +261,7 @@ bool demo_app_status_flag = 0;
 bool ultra_bat_life_flag = 0;
 bool smartchg_stop_flag = 0;
 bool smartchg_slow_flag = 0;
+int slow_charginglimit = 30;
 extern bool qc_stat_registed;
 extern int g_usb_otg;
 
@@ -4199,13 +4200,15 @@ static ssize_t smartchg_slow_charging_store(struct device *dev,
                struct device_attribute *attr, const char *buf, size_t len)
 {
 		int tmp = 0;
-		tmp = buf[0] - 48;
+		int max_current = 0;
+		sscanf(buf, "%d", &tmp);
+		slow_charginglimit = tmp;
 
-		if (tmp == 0) 
+		if (tmp == 0)
 		{
 			CHG_DBG("disable slow charging\n");
 			smartchg_slow_flag = 0;
-			vote(smbchg_dev->fcc_votable, ASUS_SLOW_FCC_VOTER, false, 0);
+			asus_exclusive_vote(smbchg_dev->usb_icl_votable, ASUS_SLOWCHG_VOTER, false, 0);
 			if(smbchg_dev->real_charger_type == POWER_SUPPLY_TYPE_USB_HVDCP_3 || smbchg_dev->pd_active == POWER_SUPPLY_PD_PPS_ACTIVE)
 			{
 				if(asus_get_prop_total_fcc() >2400)
@@ -4213,12 +4216,18 @@ static ssize_t smartchg_slow_charging_store(struct device *dev,
 					asus_disable_smb1390(false);
 				}
 			}
-		}
-		else if (tmp == 1)
-		{
-			CHG_DBG("enable slow charging\n");
+		} else {
+			CHG_DBG("enable slow charging %dW\n", tmp);
 			smartchg_slow_flag = 1;
-			vote(smbchg_dev->fcc_votable, ASUS_SLOW_FCC_VOTER, true, 2000000);
+			if(tmp == 18){
+				max_current = 2000000;
+			} else if(tmp == 10){
+				max_current = 1500000;
+			} else {
+				max_current = 1500000;
+				CHG_DBG_E("Unexpected power %dW\n", tmp);
+			}
+			asus_exclusive_vote(smbchg_dev->usb_icl_votable, ASUS_SLOWCHG_VOTER, true, max_current);
 			asus_disable_smb1390(true);
 		}
 
@@ -4227,7 +4236,7 @@ static ssize_t smartchg_slow_charging_store(struct device *dev,
 
 static ssize_t smartchg_slow_charging_show(struct device *dev, struct device_attribute *attr, char *buf)
 {
-       return sprintf(buf, "%d\n", smartchg_slow_flag);
+       return sprintf(buf, "%d\n", slow_charginglimit);
 }
 
 static DEVICE_ATTR(asus_chg_ws_disable, 0664, asus_chg_ws_disable_show, asus_chg_ws_disable_store);

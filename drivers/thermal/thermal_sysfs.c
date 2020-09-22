@@ -132,8 +132,6 @@ temp_show(struct device *dev, struct device_attribute *attr, char *buf)
 		temperature = get_virtual_temp();
 		G_virtual_therm_temp = smooth_virtual_therm_temp(temperature);
 		return sprintf(buf, "%d\n", G_virtual_therm_temp);
-	}else if(tz->id == 42){
-		return sprintf(buf, "%d\n", temperature - 3000);
 	}else{
 		return sprintf(buf, "%d\n", temperature);
 	}

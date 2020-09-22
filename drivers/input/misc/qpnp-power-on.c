@@ -26,6 +26,11 @@
 #include <linux/regulator/machine.h>
 #include <linux/regulator/of_regulator.h>
 #include <linux/reboot.h>
+
+#ifdef ZS670KS
+#include <linux/wakelock.h>
+#endif
+
 #ifdef CONFIG_PON_EVT_LOG
 extern char evtlog_pon_dump[100];
 #endif
@@ -259,6 +264,11 @@ static struct qpnp_pon *sys_reset_dev;
 static struct qpnp_pon *modem_reset_dev;
 static DEFINE_SPINLOCK(spon_list_slock);
 static LIST_HEAD(spon_dev_list);
+
+#ifdef ZS670KS
+static struct wake_lock pk_wake_lock;
+extern bool g_Charger_mode;
+#endif
 
 static u32 s1_delay[PON_S1_COUNT_MAX + 1] = {
 	0, 32, 56, 80, 138, 184, 272, 408, 608, 904, 1352, 2048, 3072, 4480,
@@ -1310,6 +1320,15 @@ static int qpnp_pon_input_dispatch(struct qpnp_pon *pon, u32 pon_type)
 			}
 		}
 	}
+
+#ifdef ZS670KS
+	if(cfg->key_code == 116 && g_Charger_mode) {
+		if(!pk_wake_lock.ws.name){
+			wake_lock_init(&pk_wake_lock, WAKE_LOCK_SUSPEND, "pk_wake_lock");
+		}
+		wake_lock_timeout(&pk_wake_lock, msecs_to_jiffies(1000));
+	}
+#endif
 
 	if (boot_after_60sec) {
 		if (cfg->key_code == 114) {
@@ -2919,6 +2938,10 @@ static int qpnp_pon_remove(struct platform_device *pdev)
 {
 	struct qpnp_pon *pon = platform_get_drvdata(pdev);
 	unsigned long flags;
+
+#ifdef ZS670KS
+	wake_lock_destroy(&pk_wake_lock);
+#endif
 
 	device_remove_file(&pdev->dev, &dev_attr_debounce_us);
 

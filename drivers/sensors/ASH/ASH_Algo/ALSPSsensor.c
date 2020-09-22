@@ -118,6 +118,9 @@ static int init_data(void);
 static void proximity_autok(struct work_struct *work);
 static int proximity_check_minCT(void);
 
+/* Light sensor average array reset for psensor noise issue */
+static void light_sensor_reset_status(void);
+
 /*Work Queue*/
 static 		DECLARE_WORK(ALSPS_ist_work, ALSPS_ist);
 static 		DECLARE_WORK(proximity_autok_work, proximity_autok);
@@ -139,6 +142,7 @@ struct psensor_data
 
 	int g_ps_factory_cal_lo;				/* Proximitysensor factory low calibration value(adc) */
 	int g_ps_factory_cal_hi;				/* Proximitysensor factory high calibration value(adc) */
+	int g_ps_factory_cal_inf;				/* Proximitysensor factory high calibration value(adc) */
 
 	int g_ps_autok_min;
 	int g_ps_autok_max;
@@ -191,6 +195,8 @@ struct lsensor_data
 	int avg_array[5];
 	bool avg_enable_flag;
 	/* ASUS BSP Clay: average 5 lux for offset behavior to mitigate the low lux gap --- */
+
+	bool freeze_psensor;
 };
 
 /*=======================
@@ -329,6 +335,52 @@ static struct i2c_test_case_info ALSPS_TestCaseInfo[] =	{
  *|| Device Layer Part ||
  *====================
  */ 
+ static void proximity_turn_on_check(void){
+	int adc_value, threshold_high;
+	if(g_ps_data->HAL_switch_on==true && g_als_data->freeze_psensor == false){
+		if(g_ps_data->Device_switch_on == false){
+			log("turn on proximity since freeze_psensor = %d", g_als_data->freeze_psensor);
+			proximity_turn_onoff(true);
+			/* ASUS BSP Clay: average 5 lux for offset behavior to mitigate the low lux gap +++ */
+			light_sensor_reset_status();
+			/* ASUS BSP Clay: average 5 lux for offset behavior to mitigate the low lux gap ---*/
+			msleep(PROXIMITY_TURNON_DELAY_TIME);
+			
+			adc_value = ALSPS_hw_client->mpsensor_hw->proximity_hw_get_adc();
+			threshold_high = (g_ps_data->g_ps_calvalue_hi);
+			log("Proximity adc_value=%d, threshold_high=%d\n", adc_value, threshold_high);
+			if (adc_value < threshold_high) {
+				psensor_report_abs(PSENSOR_REPORT_PS_AWAY);
+				g_ps_data->g_ps_int_status = ALSPS_INT_PS_AWAY;
+				log("Proximity Report First Away abs.\n");
+			}
+		}else{
+			dbg("Enable psensor already");
+		}
+	}else{
+		dbg("skip turn on proximity since psensor=%d, freeze_psensor = %d", 
+			g_ps_data->HAL_switch_on, g_als_data->freeze_psensor);
+	}
+}
+
+static void psensor_onoff_recovery(bool bOn){
+	if(g_als_data->freeze_psensor == bOn){
+		g_als_data->freeze_psensor = !bOn;
+		dbg("freeze_psensor=%d", g_als_data->freeze_psensor);
+		if(bOn){ //psensor on
+			if(g_ps_data->HAL_switch_on == true){
+				dbg("Re-enable psensor");
+				proximity_turn_on_check();
+			}
+		}else{ //psensor off
+			if(g_ps_data->HAL_switch_on == true){
+				log("Close psensor temporary");
+				proximity_turn_onoff(bOn);
+			}
+		}
+	}
+}
+
 static int proximity_turn_onoff(bool bOn)
 {
 	int ret = 0;	
@@ -491,6 +543,7 @@ static int proximity_set_threshold(void)
 		g_ps_data->g_ps_factory_cal_hi = ret;
 		log("Proximity read High Calibration : %d\n", g_ps_data->g_ps_calvalue_hi);
 	}else{
+		g_ps_data->g_ps_calvalue_hi = g_ps_data->g_ps_factory_cal_hi;
 		err("Proximity read DEFAULT High Calibration : %d\n", g_ps_data->g_ps_calvalue_hi);
 	}
 	ret = ALSPS_hw_client->mpsensor_hw->proximity_hw_set_hi_threshold(g_ps_data->g_ps_calvalue_hi);
@@ -515,6 +568,7 @@ static int proximity_set_threshold(void)
 	    	g_ps_data->g_ps_calvalue_lo = ret;
 		log("Proximity read Low Calibration : %d\n", g_ps_data->g_ps_calvalue_lo);
 	}else{
+		g_ps_data->g_ps_calvalue_lo = g_ps_data->g_ps_factory_cal_lo;
 		err("Proximity read DEFAULT Low Calibration : %d\n", g_ps_data->g_ps_calvalue_lo);
 	}
 	
@@ -808,10 +862,15 @@ static int light_suspend_turn_off(bool bOn)
 
 		g_als_data->Device_switch_on = false;
 		/*enable IRQ when proximity sensor is ON*/
-		if (g_ps_data->Device_switch_on == true) {
+		//psensor off during light sensor turn on ~ get first event, 
+		//Device_switch_on will be set false, but psensor HAL_switch_on is enable
+		if (g_ps_data->HAL_switch_on == true) { 
 			dbg("[IRQ] Enable irq !! \n");
 			enable_irq(ALSPS_SENSOR_IRQ);
 		}
+		ALSPS_hw_client->mlsensor_hw->light_hw_reset_ALS_dynamic_status();
+		g_als_data->dynamic_sensitive = ALSPS_hw_client->mlsensor_hw->light_hw_get_current_sensitive();
+		g_als_data->dynamic_IT = ALSPS_hw_client->mlsensor_hw->light_hw_get_current_IT();
 	}
 
 	return ret;
@@ -904,6 +963,7 @@ mutex_lock(&g_alsps_lock);
 			lux = light_lux_check_psensor_noise(lux);
 			/* ASUS BSP Clay: shift lux to mitigate psensor noise when psensor on and lux < offset --- */
 			if(ALS_check_event_rest_time(lux)==1){
+				psensor_onoff_recovery(true);
 				if(g_als_last_lux != lux){
 					if(lux < 100 && (log_count >= (limit_count/2))){
 						log("[Polling2] Light Sensor Report lux : %d (adc = %d), last_lux=%d, count=%d, poll_t=%u\n"
@@ -1420,27 +1480,13 @@ static bool mproximity_show_switch_onoff(void)
 
 static int mproximity_store_switch_onoff(bool bOn)
 {
-	int adc_value, threshold_high;
 	mutex_lock(&g_alsps_lock);
 	log("Proximity switch = %d.\n", bOn);		
 	if ((g_ps_data->Device_switch_on != bOn))	{						
 		if (bOn == true)	{
 			/* Turn on Proxomity */
 			g_ps_data->HAL_switch_on = true;
-			proximity_turn_onoff(true);
-			/* ASUS BSP Clay: average 5 lux for offset behavior to mitigate the low lux gap +++ */
-			light_sensor_reset_status();
-			/* ASUS BSP Clay: average 5 lux for offset behavior to mitigate the low lux gap ---*/
-			msleep(PROXIMITY_TURNON_DELAY_TIME);
-			
-			adc_value = ALSPS_hw_client->mpsensor_hw->proximity_hw_get_adc();
-			threshold_high = (g_ps_data->g_ps_calvalue_hi);
-			log("Proximity adc_value=%d, threshold_high=%d\n", adc_value, threshold_high);
-			if (adc_value < threshold_high) {
-				psensor_report_abs(PSENSOR_REPORT_PS_AWAY);
-				g_ps_data->g_ps_int_status = ALSPS_INT_PS_AWAY;
-				log("Proximity Report First Away abs.\n");
-			}			
+			proximity_turn_on_check();
 		} else	{
 			/* Turn off Proxomity */
 			g_ps_data->HAL_switch_on = false;				
@@ -1471,6 +1517,7 @@ static int mlight_store_switch_onoff(bool bOn)
 		if (bOn == true)	{
 			/* Turn on Light Sensor */
 			g_als_data->HAL_switch_on = true;
+			psensor_onoff_recovery(false);
 			light_turn_onoff(true);
 			/* ASUS BSP Clay: average 5 lux for offset behavior to mitigate the low lux gap +++ */
 			light_sensor_reset_status();
@@ -1490,6 +1537,7 @@ static int mlight_store_switch_onoff(bool bOn)
 			/* Report lux=-1 when turn off */
 			lsensor_report_lux(-1);
 			cancel_delayed_work(&light_polling_lux_work);
+			psensor_onoff_recovery(true);
 		}			
 	}else{
 		log("Light Sensor is already %s", bOn?"ON":"OFF");
@@ -1682,6 +1730,14 @@ static int mproximity_store_load_calibration_data()
 	
 	log("Proximity load factory Calibration done!\n");
 	
+	/*check the crosstalk calibration value*/	
+	ret = psensor_factory_read_inf(PSENSOR_INF_CALIBRATION_FILE);	
+	if(ret >= 0) {
+	    	g_ps_data->g_ps_factory_cal_inf= ret;
+		log("Proximity read INF Calibration : %d\n", g_ps_data->g_ps_factory_cal_inf);
+	}else{
+		err("Proximity read DEFAULT INF Calibration : %d\n", g_ps_data->g_ps_factory_cal_inf);
+	}
 	return ret;
 }
 
@@ -1986,6 +2042,7 @@ static void light_work(void)
 			/* dynamic control check after first report */
 			g_als_data->g_als_log_first_event = false;
 			ALS_dynamic_ctl_check(lux);
+			psensor_onoff_recovery(true);
 		}else{
 			if(ALS_check_event_rest_time(lux)==1){
 				if(abs(g_als_last_lux - lux) > light_log_threshold)
@@ -2258,6 +2315,7 @@ static int proximity_check_minCT(void)
 	    	g_ps_data->g_ps_calvalue_inf= ret;
 		log("Proximity read INF Calibration : %d\n", g_ps_data->g_ps_calvalue_inf);
 	}else{
+		g_ps_data->g_ps_calvalue_inf = g_ps_data->g_ps_factory_cal_inf;
 		err("Proximity read DEFAULT INF Calibration : %d\n", g_ps_data->g_ps_calvalue_inf);
 	}
 
@@ -2567,6 +2625,7 @@ static int init_data(void)
 		g_ps_data->g_ps_calvalue_inf = PROXIMITY_INF_ER2_DEFAULT;	
 		g_ps_data->g_ps_factory_cal_hi = PROXIMITY_THDH_ER2_DEFAULT;
 		g_ps_data->g_ps_factory_cal_lo = PROXIMITY_THDL_ER2_DEFAULT;
+		g_ps_data->g_ps_factory_cal_inf = PROXIMITY_INF_ER2_DEFAULT;
 		g_pocket_mode_threshold = PROXIMITY_POCKET_ER2_DEFAULT;
 	} else if(g_ASUS_hwID <= HW_REV_ER){
 #endif
@@ -2575,6 +2634,7 @@ static int init_data(void)
 		g_ps_data->g_ps_calvalue_inf = PROXIMITY_INF_ER_DEFAULT;	
 		g_ps_data->g_ps_factory_cal_hi = PROXIMITY_THDH_ER_DEFAULT;
 		g_ps_data->g_ps_factory_cal_lo = PROXIMITY_THDL_ER_DEFAULT;
+		g_ps_data->g_ps_factory_cal_inf = PROXIMITY_INF_ER_DEFAULT;
 		g_pocket_mode_threshold = PROXIMITY_POCKET_ER_DEFAULT;
 	}
 	else{
@@ -2583,6 +2643,7 @@ static int init_data(void)
 		g_ps_data->g_ps_calvalue_inf = ALSPS_hw_client->mpsensor_hw->proximity_crosstalk_default;	
 		g_ps_data->g_ps_factory_cal_hi = ALSPS_hw_client->mpsensor_hw->proximity_hi_threshold_default;
 		g_ps_data->g_ps_factory_cal_lo = ALSPS_hw_client->mpsensor_hw->proximity_low_threshold_default;
+		g_ps_data->g_ps_factory_cal_inf = ALSPS_hw_client->mpsensor_hw->proximity_crosstalk_default;	
 		g_pocket_mode_threshold = PROXIMITY_POCKET_DEFAULT;
 	}
 	g_ps_data->g_ps_autok_min= ALSPS_hw_client->mpsensor_hw->proximity_autok_min;	
@@ -2634,6 +2695,7 @@ static int init_data(void)
 	g_als_data->offset_adc = LIGHT_LOW_LUX_NOISE_OFFSET;
 	g_als_data->offset_lux = 0;
 	/* ASUS BSP Clay: shift lux to mitigate psensor noise when psensor on and lux < offset--- */
+	g_als_data->freeze_psensor = false;
 
 	/* ASUS BSP Clay: average 5 lux for offset behavior to mitigate the low lux gap +++ */
 	light_sensor_reset_status();
@@ -2725,6 +2787,7 @@ mutex_lock(&g_alsps_lock);
 	/* For make sure Light sensor mush be switch off when system suspend */
 	if (g_als_data->Device_switch_on){
 		light_suspend_turn_off(false);
+		psensor_onoff_recovery(true);
 		cancel_delayed_work(&light_polling_lux_work);
 	}
 	
@@ -2748,6 +2811,7 @@ static void mALSPS_algo_resume(void)
 
 	if (g_als_data->Device_switch_on == 0 && g_als_data->HAL_switch_on == 1){
 		resume_flag=1;
+		psensor_onoff_recovery(false);
 		light_turn_onoff(true);
 		/* ASUS BSP Clay: average for offset behavior to mitigate the low lux gap +++ */
 		light_sensor_reset_status();

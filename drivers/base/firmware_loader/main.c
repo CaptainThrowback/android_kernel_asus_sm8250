@@ -317,6 +317,10 @@ fw_get_filesystem_firmware(struct device *device, struct fw_priv *fw_priv)
 #ifdef ZS670KS
     char fw_name[5];
     bool is_adsp_readed = false;
+    if(!strncmp(fw_priv->fw_name, "tfa98xx.cnt", 11)){
+		dev_err(device, "%s() skip for fw_name (%s)\n", __func__, fw_priv->fw_name);
+		return -2;
+	}
 #endif  //ZS670KS
 	/* Already populated data member means we're loading into a buffer */
 	if (fw_priv->data) {
