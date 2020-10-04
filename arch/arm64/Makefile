@@ -197,9 +197,10 @@ vdso_install:
 archclean:
 	$(Q)$(MAKE) $(clean)=$(boot)
 	$(Q)$(MAKE) $(clean)=$(boot)/dts
+	$(Q)$(MAKE) $(clean)=$(boot)/dts/vendor/qcom
 
-CLEAN_FILES += $(boot)/Image $(boot)/Image-dtb $(boot)/Image.* $(boot)/dtbo.img
-MRPROPER_FILES += $(boot)/Image $(boot)/Image-dtb $(boot)/Image.* $(boot)/dtbo.img
+CLEAN_FILES += $(boot)/Image $(boot)/Image-dtb $(boot)/Image.* $(boot)/dtb.img $(boot)/dtbo.img
+MRPROPER_FILES += $(boot)/Image $(boot)/Image-dtb $(boot)/Image.* $(boot)/dtb.img $(boot)/dtbo.img
 
 ifeq ($(KBUILD_EXTMOD),)
 # We need to generate vdso-offsets.h before compiling certain files in kernel/.
