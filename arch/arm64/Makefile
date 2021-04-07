@@ -186,8 +186,8 @@ archclean:
 	$(Q)$(MAKE) $(clean)=$(boot)/dts
 	$(Q)$(MAKE) $(clean)=$(boot)/dts/vendor/qcom
 
-CLEAN_FILES += $(boot)/Image $(boot)/Image-dtb $(boot)/Image.* $(boot)/dtb.img $(boot)/dtbo.img
-MRPROPER_FILES += $(boot)/Image $(boot)/Image-dtb $(boot)/Image.* $(boot)/dtb.img $(boot)/dtbo.img
+CLEAN_FILES += out/$(boot)/Image out/$(boot)/Image-dtb out/$(boot)/Image.* out/$(boot)/dtb.img out/$(boot)/dtbo.img
+MRPROPER_FILES += out/$(boot)/Image out/$(boot)/Image-dtb out/$(boot)/Image.* out/$(boot)/dtb.img out/$(boot)/dtbo.img
 
 # We need to generate vdso-offsets.h before compiling certain files in kernel/.
 # In order to do that, we should use the archprepare target, but we can't since
