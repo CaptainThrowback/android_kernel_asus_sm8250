@@ -26,6 +26,27 @@ select yn in "Yes" "No"; do
 done
 
 echo
+echo "Choose Device:"
+echo
+
+select device in "ROG Phone 3" "ZenFone 7"; do
+	case $device in
+		"ROG Phone 3")
+			export ASUS_BUILD_PROJECT=ZS661KS
+			break
+			;;
+		"ZenFone 7")
+			export ASUS_BUILD_PROJECT=ZS670KS
+			break
+			;;
+	esac
+done
+
+echo
+echo -e "Building for: $device"
+echo
+
+echo
 echo "Issue Build Commands"
 echo
 
