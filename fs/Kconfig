@@ -133,10 +133,9 @@ endmenu
 endif # BLOCK
 
 if BLOCK
-menu "DOS/FAT/NT Filesystems"
+menu "DOS/FAT Filesystems"
 
 source "fs/fat/Kconfig"
-source "fs/ntfs/Kconfig"
 
 endmenu
 endif # BLOCK
